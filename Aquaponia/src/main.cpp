@@ -114,6 +114,7 @@ Json setPhEndpoint(AsyncWebServerRequest *request)
 
 TaskWrapper taskTemperatureControl;
 TaskWrapper taskSendInfo;
+TaskWrapper taskWaterPump;
 
 void TaskAquariumTemperatureControl()
 {
@@ -128,7 +129,6 @@ void TaskAquariumTemperatureControl()
     if (temperature == -127.0f)
     {
       aquarium.setStatusHeater(false);
-      aquarium.setStatusCooling(false);
 
       taskTemperatureControl.finishTask();
     }
@@ -136,7 +136,6 @@ void TaskAquariumTemperatureControl()
     float goalTemperature = (aquarium.getMaxTemperature() - aquarium.getMinTemperature()) / 2 + aquarium.getMinTemperature();
 
     aquarium.setStatusHeater(temperature < aquarium.getMinTemperature() || (aquarium.getHeaterStatus() && temperature < goalTemperature));
-    aquarium.setStatusCooling(temperature > aquarium.getMaxTemperature() || (aquarium.getCoolingStatus() && temperature > goalTemperature));
 
     taskTemperatureControl.finishTask();
   }
@@ -154,6 +153,7 @@ void TaskSendSystemInformation()
     responseData.set("termopar", temperature);
     responseData.set("min", aquarium.getMinTemperature());
     responseData.set("max", aquarium.getMaxTemperature());
+    responseData.set("rtc", clockUTC.getDateTime().getFullDate());
     responseData.set("heater_status", aquarium.getHeaterStatus() ? "on" : "off");
     responseData.set("cooling_status", aquarium.getWaterPumpStatus() ? "on" : "off");
 
@@ -164,17 +164,41 @@ void TaskSendSystemInformation()
   }
 }
 
+
+void TaskWaterPump()
+{
+  while (true)
+  {
+    aquarium.setWaterPumpStatus(!aquarium.getWaterPumpStatus());
+    vTaskDelay(200);
+    // taskWaterPump.finishTask();
+    // taskWaterPump.awaitTask(taskSendInfo);
+  }
+}
+
+void setDate(){
+  Date d;
+  d.day = 5;
+  d.month = 5;
+  d.year = 2024;
+  d.hour = 18;
+  d.minute = 10;
+  clockUTC.setClock(d);
+}
+
+
 void setup()
 {
   Serial.begin(115200);
-
+  setDate();
   localWifi.openConnection();
   connectionSocket.addEndpoint("/setTemperature", &setTemperatureEndpoint);
   connectionSocket.init();
   aquarium.begin();
 
   taskTemperatureControl.begin(&TaskAquariumTemperatureControl, "TemperatureAquarium", 4096, 1);
-  taskSendInfo.begin(&TaskSendSystemInformation, "SendInfo", 4096, 2);
+  // taskWaterPump.begin(&TaskWaterPump, "WaterPump", 4096, 2);
+  taskSendInfo.begin(&TaskSendSystemInformation, "SendInfo", 4096, 3);
 }
 
 void loop()

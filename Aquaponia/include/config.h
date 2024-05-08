@@ -1,27 +1,44 @@
 #ifndef CONFIGURATION_H
 #define CONFIGURATION_H
 
+// CONTANTES
 #define WIFI_SSID "Aquapony"
 #define WIFI_PASSWORD "12345678"
 #define WIFI_MAX_CONNECTIONS 1
+#define WIFI_DEFAULT_IP "192.168.0.4"
 #define WIFI_CHANNEL 1
 #define SERVER_PORT 80
 #define SOCKET_URL "/ws"
 #define EVENTS_URL "/events"
 
-#define PIN_THERMOCOUPLE 14
+#define MIN_AQUARIUM_TEMP 23
+#define MAX_AQUARIUM_TEMP 28
 
-#define PIN_CLOCK_CLK 25
-#define PIN_CLOCK_DAT 33
-#define PIN_CLOCK_RST 32
-
-#define PIN_HEATER 13
-#define PIN_WATER_PUMP 27
-#define PIN_COOLING 27
-#define PIN_PH 35
-#define PIN_TURBIDITY 34
+#define EEPROM_SIZE 4096
 
 
+// INPUTS
+#define PIN_THERMOCOUPLE 14             // PINO: SENSOR DE TEMPERATURA 
+#define PIN_PH 25                       // PINO: SENSOR DE PH
+#define PIN_TURBIDITY 34                // PINO: SENSOR DE TURBIDADE
+
+#define PIN_CLOCK_CLK 4
+#define PIN_CLOCK_DAT 2
+#define PIN_CLOCK_RST 15
+
+// #define PIN_CLOCK_CLK 25
+// #define PIN_CLOCK_DAT 33
+// #define PIN_CLOCK_RST 32
+
+
+// OUTPUTS
+#define PIN_HEATER 23                   // PINO: AQUECEDOR
+#define PIN_WATER_PUMP 27               // PINO: BOMBA DE AGUA
+#define PIN_COOLING 13                  // NÃO IMPLEMENTADO
+
+
+
+// ENDERÇOS DE MEMORIA EEMPROM
 #define ADDRESS_SSID 0x0001
 #define ADDRESS_PASSWORD 0x0002
 
@@ -32,9 +49,6 @@
 #define ADDRESS_CYCLE_TIME_WATER_PUMP 0x0006
 #define ADDRESS_NUMBER_CYCLE_TIME_WATER_PUMP 0x0007
 
-#define MIN_AQUARIUM_TEMP 23
-#define MAX_AQUARIUM_TEMP 28
 
-#define EEPROM_SIZE 4096
 
 #endif

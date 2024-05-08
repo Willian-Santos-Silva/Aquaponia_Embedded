@@ -13,7 +13,7 @@ private:
     Date now;
 
 public:
-    Clock() : rtc(PIN_CLOCK_CLK, PIN_CLOCK_DAT,PIN_CLOCK_RST)
+    Clock() : rtc(PIN_CLOCK_CLK, PIN_CLOCK_DAT, PIN_CLOCK_RST)
     {
         Serial.print("Iniciando RTC");
         while(!rtc.begin()){

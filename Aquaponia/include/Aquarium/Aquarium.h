@@ -74,17 +74,13 @@ public:
         return digitalRead(PIN_WATER_PUMP);
     }
 
-    bool getCoolingStatus()
+    void setWaterPumpStatus(bool status)
     {
-        return digitalRead(PIN_COOLING);
+        digitalWrite(PIN_WATER_PUMP, status);
     }
     void setStatusHeater(bool status)
     {
         digitalWrite(PIN_HEATER, status);
-    }
-    void setStatusCooling(bool status)
-    {
-        digitalWrite(PIN_COOLING, status);
     }
 };
 
