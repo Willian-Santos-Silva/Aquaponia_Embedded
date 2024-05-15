@@ -1,6 +1,7 @@
 #ifndef LOCAL_WIFI_H
 #define LOCAL_WIFI_H
-
+#include <time.h>
+#include "Clock/Clock.h"
 #include <WiFi.h>
 
 class LocalWiFi
@@ -17,8 +18,34 @@ public:
       delay(1000);
       Serial.println("Connecting to WiFi..");
     }
+    
+    initTime(-3);
     Serial.println(GetIp());
     delay(100);
+  }
+
+  void initTime(int timezone){
+    struct tm timeinfo;
+
+    configTime(timezone * 3600, 0, "pool.ntp.org");
+
+    if(!getLocalTime(&timeinfo)){
+      Serial.println("Falha ao obter horário");
+      return;
+    }
+
+    Clock clk;
+    clk.setClock(timeinfo);
+    Serial.print(clk.getDateTime().getFullDate());
+  }
+
+  void printLocalTime(){
+    struct tm timeinfo;
+    if(!getLocalTime(&timeinfo)){
+      Serial.println("Falha ao obter horário");
+      return;
+    }
+    Serial.println(&timeinfo, "%A, %B %d %Y %H:%M:%S zone %Z %z ");
   }
 
   String GetIp()

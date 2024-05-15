@@ -3,6 +3,7 @@
 
 #include <ErriezDS1302.h>
 
+#include <time.h>
 #include "Clock/Date.h"
 #include "config.h"
 
@@ -23,20 +24,33 @@ public:
         Serial.print("\r\n");
     }
 
-    void setClock(Date date)
+    // void setClock(Date date)
+    // {
+    //     if (!isRunningClock())
+    //         rtc.clockEnable(true);
+
+
+    //     if(!rtc.setDateTime(date.hour, date.minute, date.second, date.day, date.month, date.year, date.day_of_week)){
+    //         Serial.println("Erro ao definir data e hora");
+    //         return;
+    //     }
+
+    //     Serial.println("Sucesso ao definir horario");
+    // }
+
+    void setClock(tm date)
     {
         if (!isRunningClock())
             rtc.clockEnable(true);
 
 
-        if(!rtc.setDateTime(date.hour, date.minute, date.second, date.day, date.month, date.year, date.day_of_week)){
+        if(!rtc.setDateTime(static_cast<uint8_t>(date.tm_hour), static_cast<uint8_t>(date.tm_min), static_cast<uint8_t>(date.tm_sec), static_cast<uint8_t>(date.tm_mday), static_cast<uint8_t>(date.tm_mon), static_cast<uint8_t>(date.tm_year), static_cast<uint8_t>(date.tm_wday))){
             Serial.println("Erro ao definir data e hora");
             return;
         }
 
         Serial.println("Sucesso ao definir horario");
     }
-
     void setAlarm(Date date)
     {
     }

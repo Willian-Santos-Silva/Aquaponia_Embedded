@@ -1,4 +1,37 @@
+#ifndef LOCALWIFI_H
+#define LOCALWIFI_H
+
+#include <vector>
+#include <functional>
+
+#include <Wifi.h>
+#include <AsyncTCP.h>
+#include <ESPAsyncWebServer.h>
+#include <AsyncJson.h>
+
 #include "LocalWifi.h"
+#include <IPAddress.h>
+
+#include <WString.h>
+#include "config.h"
+#include "Json/Json.h"
+
+using namespace std;
+
+class LocalWifi
+{
+  public:
+    LocalWifi();
+    void openConnection();
+    void closeConnection();
+    void handlerEvents();
+    vector<IPAddress> scanNetwork();
+    void printNetworks();
+    IPAddress getIp();
+  private:
+    IPAddress _ip;
+};
+
 
 LocalWifi::LocalWifi()
 {
@@ -7,14 +40,21 @@ LocalWifi::LocalWifi()
 
 void LocalWifi::openConnection()
 {
-  WiFi.mode(LocalWifi);
+  WiFi.mode(WIFI_STA);
+
+  // IPAddress local_IP(192, 168, 0, 184);
+  // IPAddress gateway(192, 168, 0, 1);
+  // IPAddress subnet(255, 255, 255, 0);
+
+  // WiFi.config(local_IP, gateway, subnet);
+
   while (!WiFi.softAP(WIFI_SSID, WIFI_PASSWORD, WIFI_CHANNEL, 0, WIFI_MAX_CONNECTIONS))
   {
     Serial.print(".");
     delay(1000);
   }
 
-  _ip = WiFi.softAPIP();
+  LocalWifi::_ip = WiFi.softAPIP();
 }
 
 void LocalWifi::closeConnection()
@@ -33,21 +73,21 @@ void LocalWifi::handlerEvents()
     Serial.println(event);
 
     switch(event){
-      case ARDUINO_EVENT_LocalWifi_STACONNECTED:
+      case ARDUINO_EVENT_WIFI_STA_CONNECTED:
         Serial.println("Cliente conectado");
       case ARDUINO_EVENT_ETH_CONNECTED:
         Serial.println("Ethernet conectado");
       break;
-      case ARDUINO_EVENT_LocalWifi_START:
+      case ARDUINO_EVENT_WIFI_STA_START:
         Serial.println("Ponto de Acesso Iniciado");
       break;
-      case ARDUINO_EVENT_LocalWifi_STADISCONNECTED:
+      case ARDUINO_EVENT_WIFI_STA_DISCONNECTED:
         Serial.println("Cliente Desconectado");
       break;
-      case ARDUINO_EVENT_LocalWifi_STAIPASSIGNED:
+      case ARDUINO_EVENT_WIFI_AP_STAIPASSIGNED:
         Serial.println("Passingned");
       break;
-      case ARDUINO_EVENT_LocalWifi_STOP:
+      case ARDUINO_EVENT_WIFI_STA_STOP:
         Serial.println("Ponto de Acesso Desconectado");
       break;
     } });
@@ -87,3 +127,4 @@ IPAddress LocalWifi::getIp()
 {
   return _ip;
 }
+#endif

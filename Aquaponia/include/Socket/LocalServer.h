@@ -56,7 +56,7 @@ void LocalServer::init()
 {
     server.begin();
 }
-void LocalServer::onLocalServerEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len)
+void LocalServer::onWebSocketEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len)
 {
     switch (type)
     {

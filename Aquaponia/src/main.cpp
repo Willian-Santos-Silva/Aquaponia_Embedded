@@ -155,8 +155,11 @@ void TaskSendSystemInformation()
     responseData.set("max", aquarium.getMaxTemperature());
     responseData.set("rtc", clockUTC.getDateTime().getFullDate());
     responseData.set("heater_status", aquarium.getHeaterStatus() ? "on" : "off");
-    responseData.set("cooling_status", aquarium.getWaterPumpStatus() ? "on" : "off");
-
+    responseData.set("ph", aquarium.getPh());
+    // responseData.set("ph_me", aquarium.getPhByME());
+    responseData.set("volt_ph", aquarium.getPhDDP());
+    responseData.set("millivolt_ph", analogReadMilliVolts(PIN_PH));
+    responseData.set("adc_ph", analogRead(PIN_PH));
     connectionSocket.sendWsData("SystemInformation", responseData);
 
     taskSendInfo.finishTask();
@@ -169,36 +172,26 @@ void TaskWaterPump()
 {
   while (true)
   {
-    aquarium.setWaterPumpStatus(!aquarium.getWaterPumpStatus());
-    vTaskDelay(200);
+    // aquarium.setWaterPumpStatus(!aquarium.getWaterPumpStatus());
+    Serial.print("Liga");
+    vTaskDelay(2000/portTICK_PERIOD_MS);
     // taskWaterPump.finishTask();
     // taskWaterPump.awaitTask(taskSendInfo);
   }
-}
-
-void setDate(){
-  Date d;
-  d.day = 5;
-  d.month = 5;
-  d.year = 2024;
-  d.hour = 18;
-  d.minute = 10;
-  clockUTC.setClock(d);
 }
 
 
 void setup()
 {
   Serial.begin(115200);
-  setDate();
   localWifi.openConnection();
   connectionSocket.addEndpoint("/setTemperature", &setTemperatureEndpoint);
   connectionSocket.init();
   aquarium.begin();
 
-  taskTemperatureControl.begin(&TaskAquariumTemperatureControl, "TemperatureAquarium", 4096, 1);
-  // taskWaterPump.begin(&TaskWaterPump, "WaterPump", 4096, 2);
-  taskSendInfo.begin(&TaskSendSystemInformation, "SendInfo", 4096, 3);
+  taskTemperatureControl.begin(&TaskAquariumTemperatureControl, "TemperatureAquarium", 2730, 1);
+  // taskWaterPump.begin(&TaskWaterPump, "WaterPump", 2730, 2);
+  taskSendInfo.begin(&TaskSendSystemInformation, "SendInfo", 2730, 3);
 }
 
 void loop()

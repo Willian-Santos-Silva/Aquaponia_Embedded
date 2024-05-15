@@ -19,7 +19,7 @@
 
 // INPUTS
 #define PIN_THERMOCOUPLE 14             // PINO: SENSOR DE TEMPERATURA 
-#define PIN_PH 25                       // PINO: SENSOR DE PH
+#define PIN_PH 35                       // PINO: SENSOR DE PH
 #define PIN_TURBIDITY 34                // PINO: SENSOR DE TURBIDADE
 
 #define PIN_CLOCK_CLK 4
