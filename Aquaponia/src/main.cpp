@@ -108,6 +108,54 @@ Json setPhEndpoint(AsyncWebServerRequest *request)
   return responseData;
 }
 
+Json setPhEndpoint(AsyncWebServerRequest *request)
+{
+  Json responseData;
+
+  if (!request->hasParam("data"))
+  {
+    responseData.set("status_code", 500);
+    responseData.set("description", "Parametro fora de escopo");
+
+    return responseData;
+  }
+
+
+  if (!request->hasParam("data"))
+  {
+    responseData.set("status_code", 500);
+    responseData.set("description", "Parametro fora de escopo");
+
+    return responseData;
+  }
+  
+  try
+  {
+    int minTemperature = tryParseToInt(&request->getParam("minTemperature")->value());
+    int maxTemperature = tryParseToInt(&request->getParam("maxTemperature")->value());
+
+    if (!aquarium.setHeaterAlarm(minTemperature, maxTemperature))
+    {
+      responseData.set("status_code", 500);
+      responseData.set("description", "Falha ao definir intervalo de temperatura, tente novamente");
+
+      return responseData;
+    }
+
+    responseData.set("status_code", 200);
+    responseData.set("description", "Temperatura salva com sucesso");
+    responseData.set("min_temperature", aquarium.getMinTemperature());
+    responseData.set("max_temperature", aquarium.getMaxTemperature());
+  }
+  catch (const std::exception& e)
+  {
+    responseData.set("status_code", 505);
+    responseData.set("description", e.what());
+    return responseData;
+  }
+
+  return responseData;
+}
 // ============================================================================================
 //                                      TASKS
 // ============================================================================================
