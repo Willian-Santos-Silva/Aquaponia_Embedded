@@ -51,13 +51,14 @@ int tryParseToInt(const String *data)
 //                                      ENDPOINTS
 // ============================================================================================
 
-Json setTemperatureEndpoint(AsyncWebServerRequest *request)
+Json updateConfigurationEndpoint(AsyncWebServerRequest *request)
 {
 
   Json responseData;
 
   if (!request->hasParam("min_emperature") || !request->hasParam("max_temperature")
-   || !request->hasParam("ph_min") || !request->hasParam("ph_max")) || !request->hasParam("dosagem") || !request->hasParam("ppm")  
+   || !request->hasParam("ph_min") || !request->hasParam("ph_max")
+   || !request->hasParam("dosagem") || !request->hasParam("ppm")  
    )
   {
     responseData.set("status_code", 500);
@@ -68,22 +69,21 @@ Json setTemperatureEndpoint(AsyncWebServerRequest *request)
 
   try
   {
-    int minTemperature = tryParseToInt(&request->getParam("min_temperature")->value());
-    int maxTemperature = tryParseToInt(&request->getParam("max_temperature")->value());
+    int min_temperature = tryParseToInt(&request->getParam("min_temperature")->value());
+    int max_temperature = tryParseToInt(&request->getParam("max_temperature")->value());
     int ph_min = tryParseToInt(&request->getParam("max_ph")->value());
     int ph_max = tryParseToInt(&request->getParam("min_ph")->value());
     int dosagem = tryParseToInt(&request->getParam("dosagem")->value());
 
-    if (!aquarium.setHeaterAlarm(minTemperature, maxTemperature))
+    if (!aquarium.setHeaterAlarm(min_temperature, max_temperature))
     {
       responseData.set("status_code", 500);
       responseData.set("description", "Falha ao definir intervalo de temperatura, tente novamente");
 
       return responseData;
     }
-    aquarium.setHeaterAlarm(tempMin, tempMax);
-    aquarium.setPhAlarm(phMin, phMax);
-    aquarium.setPhAlarm(phMin, phMax);
+    aquarium.setHeaterAlarm(min_temperature, max_temperature);
+    aquarium.setPhAlarm(ph_max, ph_max);
     responseData.set("status_code", 200);
     responseData.set("description", "Temperatura salva com sucesso");
   }
@@ -99,64 +99,44 @@ Json setTemperatureEndpoint(AsyncWebServerRequest *request)
   return responseData;
 }
 
-Json setPhEndpoint(AsyncWebServerRequest *request)
+Json getConfigurationEndpoint(AsyncWebServerRequest *request)
 {
   Json responseData;
-  
-  if (!request->hasParam("ph_min") || !request->hasParam("ph_max") || !request->hasParam(""))
-  {
-    responseData.set("status_code", 500);
-    responseData.set("description", "Parametro fora de escopo");
 
+  try
+  {
+
+    Json responseData;
+    responseData.set("min_temperature", aquarium.getMinTemperature());
+    responseData.set("max_temperature", aquarium.getMaxTemperature());
+    responseData.set("min_ph", aquarium.getMinPh());
+    responseData.set("max_ph", aquarium.getMaxPh());
+    responseData.set("dosagem", aquarium.getPPM());
+    responseData.set("rtc", clockUTC.getDateTime().getFullDate());
+
+    responseData.set("status_code", 200);
+  }
+
+  catch (const std::exception& e)
+  {
+    responseData.set("status_code", 505);
+    string err = e.what();
+    responseData.set("description", err);
     return responseData;
   }
 
   return responseData;
 }
 
-Json setPhEndpoint(AsyncWebServerRequest *request)
+Json setLocaWifiEndpoint(AsyncWebServerRequest *request)
 {
   Json responseData;
-
-  if (!request->hasParam("data"))
-  {
-    responseData.set("status_code", 500);
-    responseData.set("description", "Parametro fora de escopo");
-
-    return responseData;
-  }
-
-
-  if (!request->hasParam("data"))
-  {
-    responseData.set("status_code", 500);
-    responseData.set("description", "Parametro fora de escopo");
-
-    return responseData;
-  }
   
-  try
+  if (!request->hasParam("ssid") || !request->hasParam("password"))
   {
-    int minTemperature = tryParseToInt(&request->getParam("minTemperature")->value());
-    int maxTemperature = tryParseToInt(&request->getParam("maxTemperature")->value());
+    responseData.set("status_code", 500);
+    responseData.set("description", "Parametro fora de escopo");
 
-    if (!aquarium.setHeaterAlarm(minTemperature, maxTemperature))
-    {
-      responseData.set("status_code", 500);
-      responseData.set("description", "Falha ao definir intervalo de temperatura, tente novamente");
-
-      return responseData;
-    }
-
-    responseData.set("status_code", 200);
-    responseData.set("description", "Temperatura salva com sucesso");
-    responseData.set("min_temperature", aquarium.getMinTemperature());
-    responseData.set("max_temperature", aquarium.getMaxTemperature());
-  }
-  catch (const std::exception& e)
-  {
-    responseData.set("status_code", 505);
-    responseData.set("description", e.what());
     return responseData;
   }
 
@@ -210,6 +190,7 @@ void TaskSendSystemInformation()
     responseData.set("rtc", clockUTC.getDateTime().getFullDate());
     responseData.set("heater_status", aquarium.getHeaterStatus() ? "on" : "off");
     responseData.set("ph", aquarium.getPh());
+    responseData.set("tubidity", aquarium.getTurbidity());
     connectionSocket.sendWsData("SystemInformation", responseData);
 
     // responseData.set("ph_me", aquarium.getPhByME());
@@ -259,7 +240,9 @@ void setup()
   attachInterrupt(PIN_BUTTON_RESET, reset, RISING);
 
   localWifi.openConnection();
-  connectionSocket.addEndpoint("/setTemperature", &setTemperatureEndpoint);
+  connectionSocket.addEndpoint("/configuration/update", &updateConfigurationEndpoint);
+  connectionSocket.addEndpoint("/configuration/get", &getConfigurationEndpoint);
+  connectionSocket.addEndpoint("/LocalConncention/set", &setLocaWifiEndpoint);
   connectionSocket.init();
 
   aquarium.begin();

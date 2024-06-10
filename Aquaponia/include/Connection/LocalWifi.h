@@ -22,8 +22,8 @@ public:
       Serial.println(LOCAL_WIFI_PASSWORD);
     }
     
-    initTime(-3);
     Serial.println(GetIp());
+    initTime(-3);
     delay(100);
   }
 

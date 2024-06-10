@@ -36,7 +36,7 @@ public:
         pinMode(PIN_HEATER, OUTPUT);
         pinMode(PIN_WATER_PUMP, OUTPUT);
         pinMode(PIN_PH, INPUT);
-        // pinMode(PIN_TURBIDITY, INPUT);
+        pinMode(PIN_TURBIDITY, INPUT);
 
         if (_memory.read<int>(ADDRESS_AQUARIUM_MIN_TEMPERATURE) == 0 || _memory.read<int>(ADDRESS_AQUARIUM_MAX_TEMPERATURE) == 0)
         {
@@ -44,11 +44,15 @@ public:
         }
         if (_memory.read<int>(ADDRESS_AQUARIUM_MIN_PH) == 0 || _memory.read<int>(ADDRESS_AQUARIUM_MAX_PH) == 0)
         {
-            setPh(MIN_AQUARIUM_PH, MAX_AQUARIUM_PH);
+            setPhAlarm(MIN_AQUARIUM_PH, MAX_AQUARIUM_PH);
         }
         if (_memory.read<int>(ADDRESS_AQUARIUM_MIN_PH) == 0 || _memory.read<int>(ADDRESS_AQUARIUM_MAX_PH) == 0)
         {
             setHeaterAlarm(MIN_AQUARIUM_PH, MAX_AQUARIUM_PH);
+        }
+        if (_memory.read<int>(ADDRESS_PPM_PH) == 0)
+        {
+            setPPM(PPM_ML_L);
         }
     }
     float map(float x, long in_min, long in_max, float out_min, float out_max) {
@@ -66,22 +70,12 @@ public:
 
     float getPh()
     {
-        // return 14 / getPhDDP();
-        //return 7 + (((3.3/2.0) - getPhDDP()) / 0.18);
-        return map(analogRead(PIN_PH), 0, 4095, 14, 0);
-    }
-    float getPhByME()
-    {
-        return getPhDDP();
-    }
-    float getDDPByPort(int port)
-    {
         float Vmax = 3.171;
         int Dmax = 4095;
         
         for(int i=0;i<10;i++) 
         { 
-            buf[i]=analogRead(port);
+            buf[i]=analogRead(PIN_PH);
             delay(10);
         }
         for(int i=0;i<9;i++)
@@ -103,14 +97,10 @@ public:
         float pHVol=(float)avgValue*Vmax/Dmax/6;
         float phValue = -5.70 * pHVol + 21.34;
         delay(20);
-
+        
         return phValue;
     }
-    
-    float getPhDDP()
-    {
-        return getDDPByPort(PIN_PH);
-    }
+
     bool getHeaterStatus()
     {
         return digitalRead(PIN_HEATER);
@@ -174,6 +164,27 @@ public:
     void setStatusHeater(bool status)
     {
         digitalWrite(PIN_HEATER, status);
+    }
+    
+    bool setPPM(int dosagem)
+    {
+        if (dosagem <= 0)
+        {
+            Serial.println("Impossivel definir esse dosagem");
+            return false;
+        }
+
+        _memory.write<int>(ADDRESS_PPM_PH, dosagem);
+        
+        return getPPM() == dosagem;
+    }
+    int getPPM()
+    {
+        return _memory.read<int>(ADDRESS_PPM_PH);
+    }
+    int getTurbidity()
+    {
+        return analogRead(PIN_TURBIDITY);
     }
 };
 

@@ -4,8 +4,8 @@
 // CONTANTES
 #define WIFI_SSID "Aquapony"
 #define WIFI_PASSWORD "12345678"
-#define LOCAL_WIFI_SSID "AndroidAP"
-#define LOCAL_WIFI_PASSWORD "okqs4173"
+#define LOCAL_WIFI_SSID "SUELI"
+#define LOCAL_WIFI_PASSWORD "santos1965"
 #define WIFI_MAX_CONNECTIONS 1
 #define WIFI_DEFAULT_IP "192.168.0.4"
 #define WIFI_CHANNEL 1
@@ -17,6 +17,7 @@
 #define MAX_AQUARIUM_TEMP 28
 #define MIN_AQUARIUM_PH 6
 #define MAX_AQUARIUM_PH 7
+#define PPM_ML_L 10
 
 #define EEPROM_SIZE 4096
 
@@ -27,7 +28,7 @@
 // INPUTS
 #define PIN_THERMOCOUPLE 14             // PINO: SENSOR DE TEMPERATURA 
 #define PIN_PH 35                       // PINO: SENSOR DE PH
-#define PIN_TURBIDITY 34                // PINO: SENSOR DE TURBIDADE
+#define PIN_TURBIDITY 21                // PINO: SENSOR DE TURBIDADE
 
 #define PIN_CLOCK_CLK 4
 #define PIN_CLOCK_DAT 2
