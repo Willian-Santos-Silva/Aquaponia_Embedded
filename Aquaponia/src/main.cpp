@@ -18,6 +18,8 @@ string printVariable(const char *name)
 {
   return name;
 }
+
+Memory memory;
 LocalWiFi localWifi;
 Clock clockUTC;
 Socket connectionSocket;
@@ -45,16 +47,6 @@ int tryParseToInt(const String *data)
   return stoi(strToInt);
 }
 
-// bool isFloat(const String data)
-// {
-//   regex rgx("^[+-]?([0-9]+)([.][0-9]+f)?$");
-//   smatch match;
-
-//   string s = data.c_str();
-
-//   return regex_match(s, match, rgx);
-// }
-
 // ============================================================================================
 //                                      ENDPOINTS
 // ============================================================================================
@@ -64,7 +56,9 @@ Json setTemperatureEndpoint(AsyncWebServerRequest *request)
 
   Json responseData;
 
-  if (!request->hasParam("minTemperature") || !request->hasParam("maxTemperature"))
+  if (!request->hasParam("min_emperature") || !request->hasParam("max_temperature")
+   || !request->hasParam("ph_min") || !request->hasParam("ph_max")) || !request->hasParam("dosagem") || !request->hasParam("ppm")  
+   )
   {
     responseData.set("status_code", 500);
     responseData.set("description", "Parametro fora de escopo");
@@ -74,8 +68,11 @@ Json setTemperatureEndpoint(AsyncWebServerRequest *request)
 
   try
   {
-    int minTemperature = tryParseToInt(&request->getParam("minTemperature")->value());
-    int maxTemperature = tryParseToInt(&request->getParam("maxTemperature")->value());
+    int minTemperature = tryParseToInt(&request->getParam("min_temperature")->value());
+    int maxTemperature = tryParseToInt(&request->getParam("max_temperature")->value());
+    int ph_min = tryParseToInt(&request->getParam("max_ph")->value());
+    int ph_max = tryParseToInt(&request->getParam("min_ph")->value());
+    int dosagem = tryParseToInt(&request->getParam("dosagem")->value());
 
     if (!aquarium.setHeaterAlarm(minTemperature, maxTemperature))
     {
@@ -84,11 +81,11 @@ Json setTemperatureEndpoint(AsyncWebServerRequest *request)
 
       return responseData;
     }
-
+    aquarium.setHeaterAlarm(tempMin, tempMax);
+    aquarium.setPhAlarm(phMin, phMax);
+    aquarium.setPhAlarm(phMin, phMax);
     responseData.set("status_code", 200);
     responseData.set("description", "Temperatura salva com sucesso");
-    responseData.set("min_temperature", aquarium.getMinTemperature());
-    responseData.set("max_temperature", aquarium.getMaxTemperature());
   }
 
   catch (const std::exception& e)
@@ -105,6 +102,15 @@ Json setTemperatureEndpoint(AsyncWebServerRequest *request)
 Json setPhEndpoint(AsyncWebServerRequest *request)
 {
   Json responseData;
+  
+  if (!request->hasParam("ph_min") || !request->hasParam("ph_max") || !request->hasParam(""))
+  {
+    responseData.set("status_code", 500);
+    responseData.set("description", "Parametro fora de escopo");
+
+    return responseData;
+  }
+
   return responseData;
 }
 
@@ -156,17 +162,30 @@ void TaskSendSystemInformation()
     responseData.set("rtc", clockUTC.getDateTime().getFullDate());
     responseData.set("heater_status", aquarium.getHeaterStatus() ? "on" : "off");
     responseData.set("ph", aquarium.getPh());
-    // responseData.set("ph_me", aquarium.getPhByME());
-    responseData.set("volt_ph", aquarium.getPhDDP());
-    responseData.set("millivolt_ph", analogReadMilliVolts(PIN_PH));
-    responseData.set("adc_ph", analogRead(PIN_PH));
     connectionSocket.sendWsData("SystemInformation", responseData);
+
+    // responseData.set("ph_me", aquarium.getPhByME());
+    // responseData.set("volt_ph", aquarium.getPhDDP());
+    // responseData.set("millivolt_ph", analogReadMilliVolts(PIN_PH));
+    // responseData.set("adc_ph", analogRead(PIN_PH));
 
     taskSendInfo.finishTask();
     taskSendInfo.awaitTask(taskTemperatureControl);
   }
 }
 
+
+void Task()
+{
+  while (true)
+  {
+    // aquarium.setWaterPumpStatus(!aquarium.getWaterPumpStatus());
+    Serial.print("Liga");
+    vTaskDelay(2000/portTICK_PERIOD_MS);
+    // taskWaterPump.finishTask();
+    // taskWaterPump.awaitTask(taskSendInfo);
+  }
+}
 
 void TaskWaterPump()
 {
@@ -179,16 +198,25 @@ void TaskWaterPump()
     // taskWaterPump.awaitTask(taskSendInfo);
   }
 }
-
+void IRAM_ATTR reset() {
+  Serial.print("Reset");
+  memory.clear();
+}
 
 void setup()
 {
   Serial.begin(115200);
+
+  pinMode(PIN_BUTTON_RESET, INPUT);
+  attachInterrupt(PIN_BUTTON_RESET, reset, RISING);
+
   localWifi.openConnection();
   connectionSocket.addEndpoint("/setTemperature", &setTemperatureEndpoint);
   connectionSocket.init();
-  aquarium.begin();
 
+  aquarium.begin();
+  
+  
   taskTemperatureControl.begin(&TaskAquariumTemperatureControl, "TemperatureAquarium", 2730, 1);
   // taskWaterPump.begin(&TaskWaterPump, "WaterPump", 2730, 2);
   taskSendInfo.begin(&TaskSendSystemInformation, "SendInfo", 2730, 3);
