@@ -1,5 +1,6 @@
 #ifndef LOCAL_WIFI_H
 #define LOCAL_WIFI_H
+#include "config.h"
 #include <time.h>
 #include "Clock/Clock.h"
 #include <WiFi.h>
@@ -7,8 +8,8 @@
 class LocalWiFi
 {
 public:
-  const char *ssid = "SUELI";
-  const char *password = "santos1965";
+  const char *ssid = LOCAL_WIFI_SSID;
+  const char *password = LOCAL_WIFI_PASSWORD;
 
   void openConnection()
   {
@@ -17,6 +18,8 @@ public:
     {
       delay(1000);
       Serial.println("Connecting to WiFi..");
+      Serial.println(LOCAL_WIFI_SSID);
+      Serial.println(LOCAL_WIFI_PASSWORD);
     }
     
     initTime(-3);

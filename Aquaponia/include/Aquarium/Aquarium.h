@@ -42,6 +42,14 @@ public:
         {
             setHeaterAlarm(MIN_AQUARIUM_TEMP, MAX_AQUARIUM_TEMP);
         }
+        if (_memory.read<int>(ADDRESS_AQUARIUM_MIN_PH) == 0 || _memory.read<int>(ADDRESS_AQUARIUM_MAX_PH) == 0)
+        {
+            setPh(MIN_AQUARIUM_PH, MAX_AQUARIUM_PH);
+        }
+        if (_memory.read<int>(ADDRESS_AQUARIUM_MIN_PH) == 0 || _memory.read<int>(ADDRESS_AQUARIUM_MAX_PH) == 0)
+        {
+            setHeaterAlarm(MIN_AQUARIUM_PH, MAX_AQUARIUM_PH);
+        }
     }
     float map(float x, long in_min, long in_max, float out_min, float out_max) {
         return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
@@ -67,17 +75,9 @@ public:
         return getPhDDP();
     }
     float getDDPByPort(int port)
-    { 
-        // float avg = 0;
-        // for(int i = 0; i <= 10; i++){
-        //     avg += analogRead(port);
-        //     delay(10);
-        // }
-
-        // float Dout = avg / 10;
+    {
         float Vmax = 3.171;
         int Dmax = 4095;
-        // float Vout = Dout * (Vmax / Dmax);
         
         for(int i=0;i<10;i++) 
         { 
@@ -102,12 +102,11 @@ public:
 
         float pHVol=(float)avgValue*Vmax/Dmax/6;
         float phValue = -5.70 * pHVol + 21.34;
-
         delay(20);
 
-
-        return phValue ;
+        return phValue;
     }
+    
     float getPhDDP()
     {
         return getDDPByPort(PIN_PH);
@@ -129,6 +128,29 @@ public:
         _memory.write<int>(ADDRESS_AQUARIUM_MAX_TEMPERATURE, tempMax);
         
         return getMaxTemperature() == tempMax && getMinTemperature() == tempMin;
+    }
+
+    bool setPhAlarm(int phMin, int phMax)
+    {
+        if (phMax < phMin || phMax <= 0 || phMin <= 0)
+        {
+            Serial.println("Impossivel definir esse ph");
+            return false;
+        }
+
+        _memory.write<int>(ADDRESS_AQUARIUM_MIN_PH, phMin);
+        _memory.write<int>(ADDRESS_AQUARIUM_MAX_PH, phMax);
+        
+        return getMaxPh() == phMax && getMinPh() == phMin;
+    }
+
+    int getMaxPh()
+    {
+        return _memory.read<int>(ADDRESS_AQUARIUM_MAX_PH);
+    }
+    int getMinPh()
+    {
+        return _memory.read<int>(ADDRESS_AQUARIUM_MIN_PH);
     }
 
     int getMaxTemperature()

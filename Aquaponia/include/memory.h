@@ -42,6 +42,15 @@ public:
         }
         return static_cast<T>(data);
     }
+
+    void clear(){
+        Serial.println("Limpando...");
+        for (int i = 0 ; i < EEPROM.length() ; i++) {
+            EEPROM.write(i, 0);
+        }
+        Serial.println("Limpeza concluida");
+    }
+
 };
 
 #endif
