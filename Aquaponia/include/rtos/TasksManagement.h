@@ -7,12 +7,14 @@ class TaskWrapper
 public:
     TaskWrapper()
     {
+        _handleTask = xSemaphoreCreateBinary();
+        if(_handleTask == NULL){
+           Serial.print("_handleNulo");
+        }
     }
 
     void begin(const std::function<void()> &taskFunction, const char *taskName, uint32_t stackSize, UBaseType_t priority) 
     {
-        _handleTask = xSemaphoreCreateBinary();
-
         _taskFunction = taskFunction;
         xTaskCreate(&TaskWrapper::taskEntryPoint, taskName, stackSize, this, priority, NULL);
     }

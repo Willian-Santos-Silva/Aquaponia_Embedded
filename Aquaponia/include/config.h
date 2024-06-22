@@ -28,15 +28,15 @@
 // INPUTS
 #define PIN_THERMOCOUPLE 14             // PINO: SENSOR DE TEMPERATURA 
 #define PIN_PH 35                       // PINO: SENSOR DE PH
-#define PIN_TURBIDITY 21                // PINO: SENSOR DE TURBIDADE
+#define PIN_TURBIDITY 34                // PINO: SENSOR DE TURBIDADE
 
 #define PIN_CLOCK_CLK 4
 #define PIN_CLOCK_DAT 2
 #define PIN_CLOCK_RST 15
 
 // OUTPUTS
-#define PIN_HEATER 23                   // PINO: AQUECEDOR
-#define PIN_WATER_PUMP 27               // PINO: BOMBA DE AGUA
+#define PIN_HEATER 5                   // PINO: AQUECEDOR
+#define PIN_WATER_PUMP 18               // PINO: BOMBA DE AGUA
 #define PIN_COOLING 13                  // NÃO IMPLEMENTADO
 
 

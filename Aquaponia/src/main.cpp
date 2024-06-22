@@ -56,7 +56,7 @@ Json updateConfigurationEndpoint(AsyncWebServerRequest *request)
 
   Json responseData;
 
-  if (!request->hasParam("min_emperature") || !request->hasParam("max_temperature")
+  if (!request->hasParam("min_temperature") || !request->hasParam("max_temperature")
    || !request->hasParam("ph_min") || !request->hasParam("ph_max")
    || !request->hasParam("dosagem") || !request->hasParam("ppm")  
    )
@@ -71,9 +71,10 @@ Json updateConfigurationEndpoint(AsyncWebServerRequest *request)
   {
     int min_temperature = tryParseToInt(&request->getParam("min_temperature")->value());
     int max_temperature = tryParseToInt(&request->getParam("max_temperature")->value());
-    int ph_min = tryParseToInt(&request->getParam("max_ph")->value());
-    int ph_max = tryParseToInt(&request->getParam("min_ph")->value());
+    int ph_min = tryParseToInt(&request->getParam("ph_max")->value());
+    int ph_max = tryParseToInt(&request->getParam("ph_min")->value());
     int dosagem = tryParseToInt(&request->getParam("dosagem")->value());
+    int ppm = tryParseToInt(&request->getParam("ppm")->value());
 
     if (!aquarium.setHeaterAlarm(min_temperature, max_temperature))
     {
@@ -82,10 +83,17 @@ Json updateConfigurationEndpoint(AsyncWebServerRequest *request)
 
       return responseData;
     }
-    aquarium.setHeaterAlarm(min_temperature, max_temperature);
-    aquarium.setPhAlarm(ph_max, ph_max);
+    if (!aquarium.setPhAlarm(ph_max, ph_max))
+    {
+      responseData.set("status_code", 500);
+      responseData.set("description", "Falha ao definir intervalo de ph, tente novamente");
+
+      return responseData;
+    }
+
     responseData.set("status_code", 200);
     responseData.set("description", "Temperatura salva com sucesso");
+    return responseData;
   }
 
   catch (const std::exception& e)
@@ -95,8 +103,6 @@ Json updateConfigurationEndpoint(AsyncWebServerRequest *request)
     responseData.set("description", err);
     return responseData;
   }
-
-  return responseData;
 }
 
 Json getConfigurationEndpoint(AsyncWebServerRequest *request)
@@ -105,8 +111,6 @@ Json getConfigurationEndpoint(AsyncWebServerRequest *request)
 
   try
   {
-
-    Json responseData;
     responseData.set("min_temperature", aquarium.getMinTemperature());
     responseData.set("max_temperature", aquarium.getMaxTemperature());
     responseData.set("min_ph", aquarium.getMinPh());
@@ -115,8 +119,8 @@ Json getConfigurationEndpoint(AsyncWebServerRequest *request)
     responseData.set("rtc", clockUTC.getDateTime().getFullDate());
 
     responseData.set("status_code", 200);
+    return responseData;
   }
-
   catch (const std::exception& e)
   {
     responseData.set("status_code", 505);
@@ -125,7 +129,6 @@ Json getConfigurationEndpoint(AsyncWebServerRequest *request)
     return responseData;
   }
 
-  return responseData;
 }
 
 Json setLocaWifiEndpoint(AsyncWebServerRequest *request)
@@ -139,6 +142,8 @@ Json setLocaWifiEndpoint(AsyncWebServerRequest *request)
 
     return responseData;
   }
+  responseData.set("status_code", 200);
+  responseData.set("description", "Definido com sucesso");
 
   return responseData;
 }
@@ -156,22 +161,18 @@ void TaskAquariumTemperatureControl()
 
   while (true)
   {
-    taskSendInfo.awaitTask(taskSendInfo);
-
     temperature = aquarium.readTemperature();
-
+    Serial.print("Temperatura");
     if (temperature == -127.0f)
     {
       aquarium.setStatusHeater(false);
-
-      taskTemperatureControl.finishTask();
     }
 
     float goalTemperature = (aquarium.getMaxTemperature() - aquarium.getMinTemperature()) / 2 + aquarium.getMinTemperature();
 
     aquarium.setStatusHeater(temperature < aquarium.getMinTemperature() || (aquarium.getHeaterStatus() && temperature < goalTemperature));
 
-    taskTemperatureControl.finishTask();
+    vTaskDelay(20 / portTICK_PERIOD_MS);
   }
 }
 
@@ -193,26 +194,7 @@ void TaskSendSystemInformation()
     responseData.set("tubidity", aquarium.getTurbidity());
     connectionSocket.sendWsData("SystemInformation", responseData);
 
-    // responseData.set("ph_me", aquarium.getPhByME());
-    // responseData.set("volt_ph", aquarium.getPhDDP());
-    // responseData.set("millivolt_ph", analogReadMilliVolts(PIN_PH));
-    // responseData.set("adc_ph", analogRead(PIN_PH));
-
-    taskSendInfo.finishTask();
-    taskSendInfo.awaitTask(taskTemperatureControl);
-  }
-}
-
-
-void Task()
-{
-  while (true)
-  {
-    // aquarium.setWaterPumpStatus(!aquarium.getWaterPumpStatus());
-    Serial.print("Liga");
-    vTaskDelay(2000/portTICK_PERIOD_MS);
-    // taskWaterPump.finishTask();
-    // taskWaterPump.awaitTask(taskSendInfo);
+    vTaskDelay(50 / portTICK_PERIOD_MS);
   }
 }
 
@@ -220,13 +202,11 @@ void TaskWaterPump()
 {
   while (true)
   {
-    // aquarium.setWaterPumpStatus(!aquarium.getWaterPumpStatus());
-    Serial.print("Liga");
-    vTaskDelay(2000/portTICK_PERIOD_MS);
-    // taskWaterPump.finishTask();
-    // taskWaterPump.awaitTask(taskSendInfo);
+    Serial.print("Pump");
+    vTaskDelay(20 / portTICK_PERIOD_MS);
   }
 }
+
 void IRAM_ATTR reset() {
   Serial.print("Reset");
   memory.clear();
@@ -239,18 +219,21 @@ void setup()
   pinMode(PIN_BUTTON_RESET, INPUT);
   attachInterrupt(PIN_BUTTON_RESET, reset, RISING);
 
+  aquarium.begin();
+
   localWifi.openConnection();
   connectionSocket.addEndpoint("/configuration/update", &updateConfigurationEndpoint);
   connectionSocket.addEndpoint("/configuration/get", &getConfigurationEndpoint);
   connectionSocket.addEndpoint("/LocalConncention/set", &setLocaWifiEndpoint);
   connectionSocket.init();
+  
+  taskTemperatureControl.begin(&TaskAquariumTemperatureControl, "TemperatureAquarium", 1300, 1);
+  taskWaterPump.begin(&TaskWaterPump, "WaterPump", 1300, 2);
+  taskSendInfo.begin(&TaskSendSystemInformation, "SendInfo", 2000, 3);
 
-  aquarium.begin();
-  
-  
-  taskTemperatureControl.begin(&TaskAquariumTemperatureControl, "TemperatureAquarium", 2730, 1);
-  // taskWaterPump.begin(&TaskWaterPump, "WaterPump", 2730, 2);
-  taskSendInfo.begin(&TaskSendSystemInformation, "SendInfo", 2730, 3);
+  while (1) {
+      vTaskDelay(1000 / portTICK_PERIOD_MS);
+  }
 }
 
 void loop()

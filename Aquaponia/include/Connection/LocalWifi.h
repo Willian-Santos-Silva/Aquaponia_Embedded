@@ -23,7 +23,7 @@ public:
     }
     
     Serial.println(GetIp());
-    initTime(-3);
+    //initTime(-3);
     delay(100);
   }
 
