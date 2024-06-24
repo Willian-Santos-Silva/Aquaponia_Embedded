@@ -147,6 +147,57 @@ Json setLocaWifiEndpoint(AsyncWebServerRequest *request)
 
   return responseData;
 }
+
+
+Json getRoutinesEndpoint(AsyncWebServerRequest *request)
+{
+  Json responseData;
+
+  try
+  {
+     vector<routine> dataRead;
+     memory.loadDataFromEEPROM(dataRead);
+     
+     for (const auto& r : dataRead) {
+         Json weekdays;
+         Serial.print("Dias da semana: ");
+         for (int i = 0; i < 7; ++i) {
+             Serial.print(r.weekday[i]);
+             Serial.print(" ");
+         }
+         Serial.println();
+   
+         Serial.println("Horarios: ");
+         for (const auto& h : r.horario) {
+             Json horarios;
+             Serial.print("Start: ");
+             Serial.print(h.start);
+             Serial.print(", End: ");
+             Serial.println(h.end);
+         }
+     }
+
+    // responseData.set("routines", dataRead);
+    responseData.set("status_code", 200);
+
+    return responseData;
+  }
+  catch (const std::exception& e)
+  {
+    responseData.set("status_code", 505);
+    string err = e.what();
+    responseData.set("description", err);
+    return responseData;
+  }
+
+}
+
+Json setRoutinesEndpoint(AsyncWebServerRequest *request){
+  Json responseData;
+  responseData.set("status_code", 200);
+  return responseData;
+}
+
 // ============================================================================================
 //                                      TASKS
 // ============================================================================================
@@ -162,7 +213,6 @@ void TaskAquariumTemperatureControl()
   while (true)
   {
     temperature = aquarium.readTemperature();
-    Serial.print("Temperatura");
     if (temperature == -127.0f)
     {
       aquarium.setStatusHeater(false);
@@ -170,8 +220,8 @@ void TaskAquariumTemperatureControl()
 
     float goalTemperature = (aquarium.getMaxTemperature() - aquarium.getMinTemperature()) / 2 + aquarium.getMinTemperature();
 
-    aquarium.setStatusHeater(temperature < aquarium.getMinTemperature() || (aquarium.getHeaterStatus() && temperature < goalTemperature));
-
+    //aquarium.setStatusHeater(temperature < aquarium.getMinTemperature() || (aquarium.getHeaterStatus() && temperature < goalTemperature));
+    Serial.println(goalTemperature);
     vTaskDelay(20 / portTICK_PERIOD_MS);
   }
 }
@@ -202,8 +252,10 @@ void TaskWaterPump()
 {
   while (true)
   {
-    Serial.print("Pump");
-    vTaskDelay(20 / portTICK_PERIOD_MS);
+    Serial.println("pump");
+    aquarium.setWaterPumpStatus(true);
+    aquarium.setStatusHeater(true);
+    vTaskDelay(2000 / portTICK_PERIOD_MS); 
   }
 }
 
@@ -219,15 +271,34 @@ void setup()
   pinMode(PIN_BUTTON_RESET, INPUT);
   attachInterrupt(PIN_BUTTON_RESET, reset, RISING);
 
+
+  vector<routine> data;
+
+  routine routines;
+  routines.weekday[5] = 1;
+  routines.weekday[6] = 1;
+  
+  horarios horario;
+  horario.start = 60;
+  horario.end = 120;
+
+  routines.horario.push_back(horario);
+  
+  data.push_back(routines);
+
+  memory.saveDataToEEPROM(data);
+
   aquarium.begin();
 
   localWifi.openConnection();
   connectionSocket.addEndpoint("/configuration/update", &updateConfigurationEndpoint);
   connectionSocket.addEndpoint("/configuration/get", &getConfigurationEndpoint);
+  connectionSocket.addEndpoint("/routine/get", &getRoutinesEndpoint);
+  connectionSocket.addEndpoint("/routine/update", &setRoutinesEndpoint);
   connectionSocket.addEndpoint("/LocalConncention/set", &setLocaWifiEndpoint);
   connectionSocket.init();
   
-  taskTemperatureControl.begin(&TaskAquariumTemperatureControl, "TemperatureAquarium", 1300, 1);
+  // taskTemperatureControl.begin(&TaskAquariumTemperatureControl, "TemperatureAquarium", 1300, 1);
   taskWaterPump.begin(&TaskWaterPump, "WaterPump", 1300, 2);
   taskSendInfo.begin(&TaskSendSystemInformation, "SendInfo", 2000, 3);
 

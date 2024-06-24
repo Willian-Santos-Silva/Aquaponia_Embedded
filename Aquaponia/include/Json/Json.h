@@ -31,6 +31,15 @@ public:
     {
         json[name] = value;
     }
+    template <typename T>
+    void set(String name, const std::vector<T>& vec)
+    {
+        JsonArray jsonArray = doc.createNestedArray();
+        for (const auto& item : vec) {
+           jsonArray.add(item);
+        }
+        json[name] = jsonArray;
+    }
     void set(String name, Json value)
     {
         DynamicJsonDocument perentDoc(1024);
