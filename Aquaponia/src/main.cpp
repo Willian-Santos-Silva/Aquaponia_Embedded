@@ -4,7 +4,7 @@
 
 #include "Json/Json.h"
 #include "Clock/Date.h"
-#include "Connection/LocalWiFi.h"
+#include "Connection/LocalNetwork.h"
 #include "Socket/Socket.h"
 #include "Aquarium/Aquarium.h"
 
@@ -20,7 +20,7 @@ string printVariable(const char *name)
 }
 
 Memory memory;
-LocalWiFi localWifi;
+LocalNetwork localNetwork;
 Clock clockUTC;
 Socket connectionSocket;
 Aquarium aquarium;
@@ -50,6 +50,42 @@ int tryParseToInt(const String *data)
 // ============================================================================================
 //                                      ENDPOINTS
 // ============================================================================================
+
+Json connectIntoLocalNetwork(AsyncWebServerRequest *request)
+{
+
+  Json responseData;
+
+  if (!request->hasParam("password") || !request->hasParam("ssid"))
+  {
+    responseData.set("status_code", 500);
+    responseData.set("description", "Parametro fora de escopo");
+
+    return responseData;
+  }
+
+  try
+  {
+    String ssid = request->getParam("ssid")->value();
+    String password = request->getParam("password")->value();
+    
+    localNetwork.setNetwork(ssid, password);
+    localNetwork.openConnection();
+
+    responseData.set("status_code", 200);
+    responseData.set("description", "Conectado com sucesso");
+  }
+
+  catch (const std::exception& e)
+  {
+    responseData.set("status_code", 505);
+    string err = e.what();
+    responseData.set("description", err);
+    return responseData;
+  }
+
+  return responseData;
+}
 
 Json updateConfigurationEndpoint(AsyncWebServerRequest *request)
 {
@@ -290,12 +326,13 @@ void setup()
 
   aquarium.begin();
 
-  localWifi.openConnection();
+  localNetwork.openConnection();
   connectionSocket.addEndpoint("/configuration/update", &updateConfigurationEndpoint);
   connectionSocket.addEndpoint("/configuration/get", &getConfigurationEndpoint);
   connectionSocket.addEndpoint("/routine/get", &getRoutinesEndpoint);
   connectionSocket.addEndpoint("/routine/update", &setRoutinesEndpoint);
   connectionSocket.addEndpoint("/LocalConncention/set", &setLocaWifiEndpoint);
+  connectionSocket.addEndpoint("/LocalNetwork/set", &connectIntoLocalNetwork);
   connectionSocket.init();
   
   // taskTemperatureControl.begin(&TaskAquariumTemperatureControl, "TemperatureAquarium", 1300, 1);
