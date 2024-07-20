@@ -26,10 +26,15 @@ private:
     int buf[10],temp;
 
 public:
+    enum solution {
+      SOLUTION_LOWER,
+      SOLUTION_RAISER
+    };
+    vector<routine> rotinas;
+
     Aquarium() : ds(PIN_THERMOCOUPLE)
     {
     }
-
 
     void begin()
     {
@@ -50,10 +55,8 @@ public:
         {
             setHeaterAlarm(MIN_AQUARIUM_PH, MAX_AQUARIUM_PH);
         }
-        if (_memory.read<int>(ADDRESS_PPM_PH) == 0)
-        {
-            setPPM(PPM_ML_L);
-        }
+        
+        _memory.loadDataFromEEPROM(rotinas);
     }
     float map(float x, long in_min, long in_max, float out_min, float out_max) {
         return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
@@ -70,7 +73,7 @@ public:
 
     float getPh()
     {
-        float Vmax = 3.171;
+        float Vmax = 3.3;
         int Dmax = 4095;
         
         for(int i=0;i<10;i++) 
@@ -95,9 +98,19 @@ public:
             avgValue+=buf[i];
 
         float pHVol=(float)avgValue*Vmax/Dmax/6;
-        float phValue = -5.70 * pHVol + 21.34;
+        float phValue = -3.30 * pHVol + 21.34;
         delay(20);
         
+        return phValue;
+    }
+
+    float getTensao()
+    {
+        float Vmax = 3.3;
+        int Dmax = 4095;
+
+        float phValue = analogRead(PIN_PH);
+    
         return phValue;
     }
 
@@ -159,13 +172,58 @@ public:
 
     void setWaterPumpStatus(bool status)
     {
-        digitalWrite(PIN_WATER_PUMP, status);
+        digitalWrite(PIN_WATER_PUMP, !status);
     }
     void setStatusHeater(bool status)
     {
-        digitalWrite(PIN_HEATER, status);
+        digitalWrite(PIN_HEATER, !status);
     }
     
+    void setPeristaulticStatus(int ml, solution solution)
+    {
+        int time =  ml / FLUXO_PERISTALTIC_ML_S;
+
+        if(solution == SOLUTION_LOWER){
+            digitalWrite(PIN_PERISTAULTIC, true);
+            delay(time * 1000);
+            digitalWrite(PIN_PERISTAULTIC, false);
+            return;
+        }
+        if(solution == SOLUTION_RAISER){
+            digitalWrite(PIN_PERISTAULTIC, true);
+            delay(time * 1000);
+            digitalWrite(PIN_PERISTAULTIC, false);
+            return;
+        }
+    }
+
+    void handlerWaterPump(Date now) {
+        try
+        {
+            for (const auto& routine : rotinas) {
+                if(routine.weekday[now.day_of_week]){
+                    for (const auto& h : routine.horarios) {
+                        if((now.hour * 60 + now.minute) >= h.start  && (now.hour * 60 + now.minute) < h.end){
+                            setWaterPumpStatus(HIGH);
+                            return;
+                        }
+                        setWaterPumpStatus(LOW);
+                    }
+                }
+            }
+        }
+        catch (const std::exception& e)
+        {
+            String err = e.what();
+            Serial.println("description: " + err);
+        }
+    }
+
+    Date getEndNextTime(){
+
+        return Date();
+    }
+
     bool setPPM(int dosagem)
     {
         if (dosagem <= 0)
@@ -182,7 +240,10 @@ public:
     {
         return _memory.read<int>(ADDRESS_PPM_PH);
     }
-    int getTurbidity()
+
+
+   
+   int getTurbidity()
     {
         return analogRead(PIN_TURBIDITY);
     }

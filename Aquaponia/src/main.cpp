@@ -12,12 +12,6 @@
 #include "rtos/TasksManagement.h"
 #include "memory.h"
 #include "config.h"
-#define PRINT_VARIABLE_NAME(variable) printVariable(#variable);
-
-string printVariable(const char *name)
-{
-  return name;
-}
 
 Memory memory;
 LocalNetwork localNetwork;
@@ -51,15 +45,15 @@ int tryParseToInt(const String *data)
 //                                      ENDPOINTS
 // ============================================================================================
 
-Json connectIntoLocalNetwork(AsyncWebServerRequest *request)
+DynamicJsonDocument connectIntoLocalNetwork(AsyncWebServerRequest *request)
 {
-
-  Json responseData;
+  DynamicJsonDocument doc(5028);
+  JsonObject responseData = doc.createNestedObject("data");
 
   if (!request->hasParam("password") || !request->hasParam("ssid"))
   {
-    responseData.set("status_code", 500);
-    responseData.set("description", "Parametro fora de escopo");
+    responseData["status_code"] = 500;
+    responseData["description"] = "Parametro fora de escopo";
 
     return responseData;
   }
@@ -68,37 +62,33 @@ Json connectIntoLocalNetwork(AsyncWebServerRequest *request)
   {
     String ssid = request->getParam("ssid")->value();
     String password = request->getParam("password")->value();
-    
+
     localNetwork.setNetwork(ssid, password);
     localNetwork.openConnection();
 
-    responseData.set("status_code", 200);
-    responseData.set("description", "Conectado com sucesso");
+    responseData["status_code"] = 200;
+    responseData["description"] = "Conectado com sucesso";
   }
 
-  catch (const std::exception& e)
+  catch (const std::exception &e)
   {
-    responseData.set("status_code", 505);
+    responseData["status_code"] = 505;
     string err = e.what();
-    responseData.set("description", err);
+    responseData["description"] = err;
     return responseData;
   }
 
   return responseData;
 }
-
-Json updateConfigurationEndpoint(AsyncWebServerRequest *request)
+DynamicJsonDocument updateConfigurationEndpoint(AsyncWebServerRequest *request)
 {
+  DynamicJsonDocument doc(5028);
+  JsonObject responseData = doc.createNestedObject("data");
 
-  Json responseData;
-
-  if (!request->hasParam("min_temperature") || !request->hasParam("max_temperature")
-   || !request->hasParam("ph_min") || !request->hasParam("ph_max")
-   || !request->hasParam("dosagem") || !request->hasParam("ppm")  
-   )
+  if (!request->hasParam("min_temperature") || !request->hasParam("max_temperature") || !request->hasParam("ph_min") || !request->hasParam("ph_max") || !request->hasParam("dosagem") || !request->hasParam("ppm"))
   {
-    responseData.set("status_code", 500);
-    responseData.set("description", "Parametro fora de escopo");
+    responseData["status_code"] = 500;
+    responseData["description"] = "Parametro fora de escopo";
 
     return responseData;
   }
@@ -114,123 +104,120 @@ Json updateConfigurationEndpoint(AsyncWebServerRequest *request)
 
     if (!aquarium.setHeaterAlarm(min_temperature, max_temperature))
     {
-      responseData.set("status_code", 500);
-      responseData.set("description", "Falha ao definir intervalo de temperatura, tente novamente");
+      responseData["status_code"] = 500;
+      responseData["description"] = "Falha ao definir intervalo de temperatura, tente novamente";
 
       return responseData;
     }
     if (!aquarium.setPhAlarm(ph_max, ph_max))
     {
-      responseData.set("status_code", 500);
-      responseData.set("description", "Falha ao definir intervalo de ph, tente novamente");
+      responseData["status_code"] = 500;
+      responseData["description"] = "Falha ao definir intervalo de ph, tente novamente";
 
       return responseData;
     }
 
-    responseData.set("status_code", 200);
-    responseData.set("description", "Temperatura salva com sucesso");
+    responseData["status_code"] = 200;
+    responseData["description"] = "Temperatura salva com sucesso";
     return responseData;
   }
 
-  catch (const std::exception& e)
+  catch (const std::exception &e)
   {
-    responseData.set("status_code", 505);
+    responseData["status_code"] = 505;
     string err = e.what();
-    responseData.set("description", err);
+    responseData["description"] = err;
     return responseData;
   }
 }
-
-Json getConfigurationEndpoint(AsyncWebServerRequest *request)
+DynamicJsonDocument getConfigurationEndpoint(AsyncWebServerRequest *request)
 {
-  Json responseData;
+  
+  DynamicJsonDocument doc(5028);
+  JsonObject responseData = doc.createNestedObject("data");
 
   try
   {
-    responseData.set("min_temperature", aquarium.getMinTemperature());
-    responseData.set("max_temperature", aquarium.getMaxTemperature());
-    responseData.set("min_ph", aquarium.getMinPh());
-    responseData.set("max_ph", aquarium.getMaxPh());
-    responseData.set("dosagem", aquarium.getPPM());
-    responseData.set("rtc", clockUTC.getDateTime().getFullDate());
+    responseData["min_temperature"] = aquarium.getMinTemperature();
+    responseData["max_temperature"] = aquarium.getMaxTemperature();
+    responseData["min_ph"] = aquarium.getMinPh();
+    responseData["max_ph"] = aquarium.getMaxPh();
+    responseData["dosagem"] = aquarium.getPPM();
+    responseData["rtc"] = clockUTC.getDateTime().getFullDate();
 
-    responseData.set("status_code", 200);
+    responseData["status_code"] = 200;
     return responseData;
   }
-  catch (const std::exception& e)
+  catch (const std::exception &e)
   {
-    responseData.set("status_code", 505);
+    responseData["status_code"] = 505;
     string err = e.what();
-    responseData.set("description", err);
+    responseData["description"] = err;
     return responseData;
   }
-
 }
-
-Json setLocaWifiEndpoint(AsyncWebServerRequest *request)
+DynamicJsonDocument setLocaWifiEndpoint(AsyncWebServerRequest *request)
 {
-  Json responseData;
-  
+  DynamicJsonDocument doc(5028);
+  JsonObject responseData = doc.createNestedObject("data");
+
   if (!request->hasParam("ssid") || !request->hasParam("password"))
   {
-    responseData.set("status_code", 500);
-    responseData.set("description", "Parametro fora de escopo");
+    responseData["status_code"] = 500;
+    responseData["description"] = "Parametro fora de escopo";
 
     return responseData;
   }
-  responseData.set("status_code", 200);
-  responseData.set("description", "Definido com sucesso");
+  responseData["status_code"] = 200;
+  responseData["description"] = "Definido com sucesso";
 
   return responseData;
 }
-
-
-Json getRoutinesEndpoint(AsyncWebServerRequest *request)
+DynamicJsonDocument getRoutinesEndpoint(AsyncWebServerRequest *request)
 {
-  Json responseData;
-
+  DynamicJsonDocument doc(5028);
+  JsonObject responseData = doc.to<JsonObject>();
+  JsonArray dataArray = responseData.createNestedArray("data");
+  
   try
   {
-     vector<routine> dataRead;
-     memory.loadDataFromEEPROM(dataRead);
-     
-     for (const auto& r : dataRead) {
-         Json weekdays;
-         Serial.print("Dias da semana: ");
-         for (int i = 0; i < 7; ++i) {
-             Serial.print(r.weekday[i]);
-             Serial.print(" ");
-         }
-         Serial.println();
-   
-         Serial.println("Horarios: ");
-         for (const auto& h : r.horario) {
-             Json horarios;
-             Serial.print("Start: ");
-             Serial.print(h.start);
-             Serial.print(", End: ");
-             Serial.println(h.end);
-         }
-     }
+    vector<routine> data;
+    memory.loadDataFromEEPROM(data);
 
-    // responseData.set("routines", dataRead);
-    responseData.set("status_code", 200);
-
-    return responseData;
-  }
-  catch (const std::exception& e)
+  for (const auto &r : data)
   {
-    responseData.set("status_code", 505);
-    string err = e.what();
-    responseData.set("description", err);
-    return responseData;
+    JsonObject rotina = dataArray.createNestedObject();
+    JsonArray weekdays = rotina.createNestedArray("weekdays");
+    for (size_t i = 0; i <  end(r.weekday) - begin(r.weekday); ++i) {
+        weekdays.add(r.weekday[i]);
+    }
+
+    JsonArray horarios = rotina.createNestedArray("horarios");
+    for (const auto &h : r.horarios)
+    {
+      JsonObject horario = horarios.createNestedObject();
+      horario["start"] = h.start;
+      horario["end"] = h.end;
+    }
   }
+    responseData["status_code"] = 200;
 
+    return doc;
+  }
+  catch (const std::exception &e)
+  {
+    responseData["status_code"] = 505;
+    string err = e.what();
+    responseData["description"] = err;
+    return doc;
+  }
 }
+DynamicJsonDocument setRoutinesEndpoint(AsyncWebServerRequest *request)
+{
+  DynamicJsonDocument doc(5028);
+  JsonObject responseData = doc.createNestedObject("data");
 
-Json setRoutinesEndpoint(AsyncWebServerRequest *request){
-  Json responseData;
-  responseData.set("status_code", 200);
+  responseData["status_code"] = 200;
   return responseData;
 }
 
@@ -245,58 +232,99 @@ TaskWrapper taskWaterPump;
 void TaskAquariumTemperatureControl()
 {
   float temperature;
-
+  float flagTemeperature;
+  float Kp = 2.0f, Ki = 5.0f, Kd = 1.0f;
+  double integralError;
+  double output;
   while (true)
   {
     temperature = aquarium.readTemperature();
+    float goalTemperature = (aquarium.getMaxTemperature() - aquarium.getMinTemperature()) / 2 + aquarium.getMinTemperature();
+    double erro = goalTemperature - temperature;
+    integralError += erro;
     if (temperature == -127.0f)
     {
       aquarium.setStatusHeater(false);
     }
+    flagTemeperature = temperature;
+    output = Kp * erro + Ki * integralError - Kd * (temperature - flagTemeperature);
 
-    float goalTemperature = (aquarium.getMaxTemperature() - aquarium.getMinTemperature()) / 2 + aquarium.getMinTemperature();
+    aquarium.setStatusHeater(output < 0);
 
-    //aquarium.setStatusHeater(temperature < aquarium.getMinTemperature() || (aquarium.getHeaterStatus() && temperature < goalTemperature));
-    Serial.println(goalTemperature);
-    vTaskDelay(20 / portTICK_PERIOD_MS);
+    vTaskDelay(1000 / portTICK_PERIOD_MS);
   }
 }
-
 void TaskSendSystemInformation()
 {
-  float temperature;
-
   while (true)
   {
-    temperature = aquarium.readTemperature();
+    DynamicJsonDocument doc(5028);
+    JsonObject responseData = doc.createNestedObject();
+    responseData["termopar"] = aquarium.readTemperature();
+    responseData["min"] = aquarium.getMinTemperature();
+    responseData["max"] = aquarium.getMaxTemperature();
+    responseData["rtc"] = clockUTC.getDateTime().getFullDate();
+    responseData["ph"] = aquarium.getPh();
+    responseData["ph_v"] = aquarium.getTensao();
 
-    Json responseData;
-    responseData.set("termopar", temperature);
-    responseData.set("min", aquarium.getMinTemperature());
-    responseData.set("max", aquarium.getMaxTemperature());
-    responseData.set("rtc", clockUTC.getDateTime().getFullDate());
-    responseData.set("heater_status", aquarium.getHeaterStatus() ? "on" : "off");
-    responseData.set("ph", aquarium.getPh());
-    responseData.set("tubidity", aquarium.getTurbidity());
+    double voltagem = aquarium.getTurbidity() / 4095.0 * 3.3;
+    double NTU;
+    if (voltagem <= 2.5)
+      NTU = 3000;
+    else if (voltagem > 4.2)
+      NTU = 0;
+    else
+      NTU = -1120.4 * sqrt(voltagem) + 5742.3 * voltagem - 4353.8;
+
+    responseData["tubidity"] = NTU;
+    responseData["tubidity_2"] = voltagem;
+    responseData["tubidity_3"] = aquarium.getTurbidity();
     connectionSocket.sendWsData("SystemInformation", responseData);
 
     vTaskDelay(50 / portTICK_PERIOD_MS);
   }
 }
-
 void TaskWaterPump()
 {
   while (true)
   {
-    Serial.println("pump");
-    aquarium.setWaterPumpStatus(true);
-    aquarium.setStatusHeater(true);
-    vTaskDelay(2000 / portTICK_PERIOD_MS); 
+    Date now = clockUTC.getDateTime();
+    aquarium.handlerWaterPump(now);
+
+    vTaskDelay(1000 / portTICK_PERIOD_MS);
+  }
+}
+void TaskPeristaultic()
+{
+  while (true)
+  {
+    int ph = aquarium.getPh();
+    int goal = aquarium.getMinPh() + (aquarium.getMaxPh() - aquarium.getMinPh()) / 2;
+
+    memory.write<long>(ADDRESS_LAST_APPLICATION_ACID_BUFFER_PH, DEFAULT_TIME_DELAY_PH);
+
+    int ml_s = 1 / 1000;
+
+    if (ph <= aquarium.getMinPh())
+    {
+      int maxBufferSolutionMl = AQUARIUM_VOLUME_L * (DOSAGE_RAISE_SOLUTION_M3_L / 1000);
+
+      aquarium.setPeristaulticStatus(ml_s, aquarium.SOLUTION_RAISER);
+    }
+
+    if (ph >= aquarium.getMaxPh())
+    {
+      int maxAlkalineSolutionMl = AQUARIUM_VOLUME_L * (DOSAGE_LOWER_SOLUTION_M3_L / 1000);
+
+      aquarium.setPeristaulticStatus(ml_s, aquarium.SOLUTION_LOWER);
+    }
+
+    vTaskDelay(60000 / portTICK_PERIOD_MS);
   }
 }
 
-void IRAM_ATTR reset() {
-  Serial.print("Reset");
+void IRAM_ATTR reset()
+{
   memory.clear();
 }
 
@@ -307,22 +335,46 @@ void setup()
   pinMode(PIN_BUTTON_RESET, INPUT);
   attachInterrupt(PIN_BUTTON_RESET, reset, RISING);
 
-
   vector<routine> data;
 
   routine routines;
-  routines.weekday[5] = 1;
-  routines.weekday[6] = 1;
-  
-  horarios horario;
-  horario.start = 60;
-  horario.end = 120;
+  routines.weekday[0] = 1;
+  routines.weekday[1] = 1;
+  routines.weekday[2] = 1;
+  routines.weekday[3] = 1;
+  routines.weekday[4] = 1;
 
-  routines.horario.push_back(horario);
-  
+  horario horario;
+  horario.start = 1260;
+  horario.end = 1320 - 20;
+
+  routines.horarios.push_back(horario);
+
+  data.push_back(routines);
+  data.push_back(routines);
   data.push_back(routines);
 
   memory.saveDataToEEPROM(data);
+  
+  DynamicJsonDocument doc(5028);
+  JsonArray responseData = doc.createNestedArray("data");
+  for (const auto &r : data)
+  {
+    JsonObject rotina = responseData.createNestedObject();
+    JsonArray weekdays = rotina.createNestedArray("weekdays");
+    for (size_t i = 0; i <  end(r.weekday) - begin(r.weekday); ++i) {
+        weekdays.add(r.weekday[i]);
+    }
+
+    JsonArray horarios = rotina.createNestedArray("horarios");
+    for (const auto &h : r.horarios)
+    {
+      JsonObject horario = horarios.createNestedObject();
+      horario["start"] = h.start;
+      horario["end"] = h.end;
+    }
+  }
+  serializeJson(doc, Serial);
 
   aquarium.begin();
 
@@ -334,13 +386,14 @@ void setup()
   connectionSocket.addEndpoint("/LocalConncention/set", &setLocaWifiEndpoint);
   connectionSocket.addEndpoint("/LocalNetwork/set", &connectIntoLocalNetwork);
   connectionSocket.init();
-  
-  // taskTemperatureControl.begin(&TaskAquariumTemperatureControl, "TemperatureAquarium", 1300, 1);
-  taskWaterPump.begin(&TaskWaterPump, "WaterPump", 1300, 2);
-  taskSendInfo.begin(&TaskSendSystemInformation, "SendInfo", 2000, 3);
 
-  while (1) {
-      vTaskDelay(1000 / portTICK_PERIOD_MS);
+  // taskTemperatureControl.begin(&TaskAquariumTemperatureControl, "TemperatureAquarium", 1300, 1);
+  taskWaterPump.begin(&TaskWaterPump, "WaterPump", 10000, 2);
+  taskSendInfo.begin(&TaskSendSystemInformation, "SendInfo", 10000, 3);
+
+  while (1)
+  {
+    vTaskDelay(1000 / portTICK_PERIOD_MS);
   }
 }
 

@@ -16,7 +16,7 @@
 
 using namespace std;
 
-using ActionFunction = std::function<Json(AsyncWebServerRequest *request)>;
+using ActionFunction = std::function<DynamicJsonDocument(AsyncWebServerRequest *request)>;
 
 class Socket
 {
@@ -27,13 +27,13 @@ private:
 
 public:
     Socket();
-    void sendWsDataToClient(AsyncWebSocketClient *client, Json data);
+    void sendWsDataToClient(AsyncWebSocketClient *client, DynamicJsonDocument data);
     void onClientConnect(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len);
     void onMessage(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len);
     void onClientDisconnect(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len);
     void onWebSocketEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len);
 
-    void sendWsData(String actionName, Json json);
+    void sendWsData(String actionName, DynamicJsonDocument json);
 
     void init();
 
@@ -52,30 +52,41 @@ Socket::Socket() : server(80), socket("/ws"), events("/events")
 
 void Socket::addEndpoint(const char *pathname, ActionFunction action)
 {
-      server.on(pathname, HTTP_GET, [action](AsyncWebServerRequest *request){
-        Json result = action(request);
+    server.on(pathname, HTTP_GET, [action](AsyncWebServerRequest *request){
+        DynamicJsonDocument result = action(request);
+        JsonObject jsonResult = result.as<JsonObject>();
 
-        request->send(result.get<int>("status_code"), "text/json", result.serializeToString());
-      });
+        String resultString;
+        serializeJson(result, resultString);
+        Serial.println(resultString);
+        
+        request->send(static_cast<int>(jsonResult["status_code"]), "text/json", resultString);
+    });
 }
+
 
 void Socket::init()
 {
     server.begin();
 }
 
-void Socket::sendWsDataToClient(AsyncWebSocketClient *client, Json data)
+void Socket::sendWsDataToClient(AsyncWebSocketClient *client, DynamicJsonDocument data)
 {
-    socket.text(client->id(), data.serializeToString());
+    String resultString;
+    serializeJson(data, resultString);
+
+    socket.text(client->id(), resultString);
 }
 
-void Socket::sendWsData(String actionName, Json data)
+void Socket::sendWsData(String actionName, DynamicJsonDocument data)
 {
-    Json responseData;
-    responseData.set("action", actionName);
-    responseData.set("data", data);
+    data["action"] = actionName;
+    data["data"] = data;
 
-    socket.textAll(responseData.serializeToString());
+    String resultString;
+    serializeJson(data, resultString);
+
+    socket.textAll(resultString);
 }
 
 void Socket::onWebSocketEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len)
@@ -110,8 +121,9 @@ void Socket::onMessage(AsyncWebSocket *server, AsyncWebSocketClient *client, Aws
     {
         Serial.printf("WebSocket received message: %.*s\n", len, data);
     }
-
-    Json responseData;
+    DynamicJsonDocument doc(len);
+    JsonObject responseData = doc.to<JsonObject>();
+    responseData["data"] = data;
     sendWsDataToClient(client, responseData);
 }
 #endif

@@ -23,23 +23,13 @@ public:
     }
     
     Serial.println(GetIp());
-    initTime(-3);
-    delay(100);
-  }
-
-  void initTime(int timezone){
-    struct tm timeinfo;
-
-    configTime(timezone * 3600, 0, "pool.ntp.org");
-
-    if(!getLocalTime(&timeinfo)){
-      Serial.println("Falha ao obter horário");
-      return;
-    }
+    
+    int timezone = -3;
 
     Clock clk;
-    clk.setClock(timeinfo);
-    Serial.print(clk.getDateTime().getFullDate());
+    clk.setTime(timezone);
+
+    delay(100);
   }
 
   void printLocalTime(){

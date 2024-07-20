@@ -6,13 +6,13 @@
 
 #include "config.h"
 
-struct horarios{
+struct horario{
     int start;
     int end;
 };
 struct routine{
     bool weekday[7];
-    vector<horarios> horario;
+    vector<horario> horarios;
 };
 class Memory
 {
@@ -69,11 +69,11 @@ public:
         int horarioSize;
         memcpy(&horarioSize, buffer + pos, sizeof(int));
         pos += sizeof(int);
-        r.horario.resize(horarioSize);
+        r.horarios.resize(horarioSize);
         for (int i = 0; i < horarioSize; ++i) {
-            memcpy(&r.horario[i].start, buffer + pos, sizeof(int));
+            memcpy(&r.horarios[i].start, buffer + pos, sizeof(int));
             pos += sizeof(int);
-            memcpy(&r.horario[i].end, buffer + pos, sizeof(int));
+            memcpy(&r.horarios[i].end, buffer + pos, sizeof(int));
             pos += sizeof(int);
         }
     }
@@ -82,10 +82,10 @@ public:
         for (int i = 0; i < 7; ++i) {
             buffer[pos++] = r.weekday[i];
         }
-        int horarioSize = r.horario.size();
+        int horarioSize = r.horarios.size();
         memcpy(buffer + pos, &horarioSize, sizeof(int));
         pos += sizeof(int);
-        for (const auto &h : r.horario) {
+        for (const auto &h : r.horarios) {
             memcpy(buffer + pos, &h.start, sizeof(int));
             pos += sizeof(int);
             memcpy(buffer + pos, &h.end, sizeof(int));
@@ -95,8 +95,7 @@ public:
 
     void saveDataToEEPROM(const std::vector<routine> &data) {
         int dataSize = data.size();
-        int bufferSize = SIZE_ROUTINES;
-        byte buffer[bufferSize];
+        byte buffer[SIZE_ROUTINES];
         int pos = 0;
         
         memcpy(buffer + pos, &dataSize, sizeof(int));
@@ -105,22 +104,21 @@ public:
         for (const auto &r : data) {
             serializeRoutine(r, buffer, pos);
         }
-        if (!EEPROM.begin(1024)) {
+        if (!EEPROM.begin(SIZE_ROUTINES)) {
             Serial.println("Failed to initialise EEPROM");
             return;
         }
-        for (int i = 0; i < bufferSize; ++i) {
+        for (int i = 0; i < SIZE_ROUTINES; ++i) {
             EEPROM.write(i, buffer[i]);
         }
         EEPROM.commit();
     }
 
     void loadDataFromEEPROM(std::vector<routine> &data) {
-        int bufferSize = SIZE_ROUTINES;
-        byte buffer[bufferSize];
+        byte buffer[SIZE_ROUTINES];
         int pos = 0;
         
-        for (int i = 0; i < bufferSize; ++i) {
+        for (int i = 0; i < SIZE_ROUTINES; ++i) {
             buffer[i] = EEPROM.read(i);
         }
         
