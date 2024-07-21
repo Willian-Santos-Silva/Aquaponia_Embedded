@@ -138,6 +138,11 @@ DynamicJsonDocument getConfigurationEndpoint(AsyncWebServerRequest *request)
 
   try
   {
+    
+    Serial.print(aquarium.getMinPh());
+    Serial.print(" - ");
+    Serial.println(aquarium.getMaxPh());
+
     responseData["min_temperature"] = aquarium.getMinTemperature();
     responseData["max_temperature"] = aquarium.getMaxTemperature();
     responseData["min_ph"] = aquarium.getMinPh();
@@ -354,7 +359,6 @@ void setup()
   data.push_back(routines);
   data.push_back(routines);
 
-  memory.saveDataToEEPROM(data);
   
   DynamicJsonDocument doc(5028);
   JsonArray responseData = doc.createNestedArray("data");
@@ -374,9 +378,14 @@ void setup()
       horario["end"] = h.end;
     }
   }
-  serializeJson(doc, Serial);
+  // serializeJson(doc, Serial);
+  Serial.println("");
 
   aquarium.begin();
+  memory.saveDataToEEPROM(data);
+    Serial.print(memory.read<int>(ADDRESS_AQUARIUM_MIN_PH));
+    Serial.print(" - ");
+    Serial.println(memory.read<int>(ADDRESS_AQUARIUM_MAX_PH));
 
   localNetwork.openConnection();
   connectionSocket.addEndpoint("/configuration/update", &updateConfigurationEndpoint);
@@ -390,6 +399,8 @@ void setup()
   // taskTemperatureControl.begin(&TaskAquariumTemperatureControl, "TemperatureAquarium", 1300, 1);
   taskWaterPump.begin(&TaskWaterPump, "WaterPump", 10000, 2);
   taskSendInfo.begin(&TaskSendSystemInformation, "SendInfo", 10000, 3);
+
+  memory.write<bool>(ADDRESS_START, true);
 
   while (1)
   {

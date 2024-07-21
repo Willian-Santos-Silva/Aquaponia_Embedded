@@ -57,6 +57,7 @@ public:
         for (int i = 0 ; i < EEPROM.length() ; i++) {
             EEPROM.write(i, 0);
         }
+        EEPROM.commit();
         Serial.println("Limpeza concluida");
     }
 
@@ -109,7 +110,7 @@ public:
             return;
         }
         for (int i = 0; i < SIZE_ROUTINES; ++i) {
-            EEPROM.write(i, buffer[i]);
+            EEPROM.write(i + ADDRESS_CYCLE_TIME_WATER_PUMP, buffer[i]);
         }
         EEPROM.commit();
     }
@@ -119,7 +120,7 @@ public:
         int pos = 0;
         
         for (int i = 0; i < SIZE_ROUTINES; ++i) {
-            buffer[i] = EEPROM.read(i);
+            buffer[i] = EEPROM.read(i + ADDRESS_CYCLE_TIME_WATER_PUMP);
         }
         
         int dataSize;

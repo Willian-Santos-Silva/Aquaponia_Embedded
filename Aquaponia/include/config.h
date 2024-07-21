@@ -107,21 +107,20 @@ T(em Kelvin)
 
 
 
-// ENDERÇOS DE MEMORIA EEMPROM
-#define ADDRESS_SSID 1
-#define ADDRESS_PASSWORD 2
-
-#define ADDRESS_AQUARIUM_TEMPERATURE                          3
-#define ADDRESS_AQUARIUM_MIN_TEMPERATURE                      11
-#define ADDRESS_AQUARIUM_MAX_TEMPERATURE                      19
-#define ADDRESS_AQUARIUM_MAX_PH                               27
-#define ADDRESS_AQUARIUM_MIN_PH                               35
-#define ADDRESS_DOSAGEM_REDUTOR_PH                            43
-#define ADDRESS_PPM_PH                                        51
-#define ADDRESS_LAST_APPLICATION_ACID_BUFFER_PH               59
-
-#define ADDRESS_CYCLE_TIME_WATER_PUMP 67
-#define SIZE_ROUTINES 2046
+// ENDERÇOS DE MEMORIA EEMPROM  
+#define ADDRESS_START                                         0x000000
+#define ADDRESS_SSID                                          0x000001
+#define ADDRESS_PASSWORD                                      0x000005
+#define ADDRESS_AQUARIUM_TEMPERATURE                          0x000009
+#define ADDRESS_AQUARIUM_MIN_TEMPERATURE                      0x00000D
+#define ADDRESS_AQUARIUM_MAX_TEMPERATURE                      0x000011
+#define ADDRESS_AQUARIUM_MIN_PH                               0x000015
+#define ADDRESS_AQUARIUM_MAX_PH                               0x000019
+#define ADDRESS_DOSAGEM_REDUTOR_PH                            0x00001D
+#define ADDRESS_PPM_PH                                        0x000021
+#define ADDRESS_LAST_APPLICATION_ACID_BUFFER_PH               0x000025
+#define ADDRESS_CYCLE_TIME_WATER_PUMP                         0x000029
+#define SIZE_ROUTINES                                         2046
 
 
 

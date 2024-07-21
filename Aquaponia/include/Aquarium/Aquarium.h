@@ -43,20 +43,26 @@ public:
         pinMode(PIN_PH, INPUT);
         pinMode(PIN_TURBIDITY, INPUT);
 
-        if (_memory.read<int>(ADDRESS_AQUARIUM_MIN_TEMPERATURE) == 0 || _memory.read<int>(ADDRESS_AQUARIUM_MAX_TEMPERATURE) == 0)
-        {
-            setHeaterAlarm(MIN_AQUARIUM_TEMP, MAX_AQUARIUM_TEMP);
-        }
-        if (_memory.read<int>(ADDRESS_AQUARIUM_MIN_PH) == 0 || _memory.read<int>(ADDRESS_AQUARIUM_MAX_PH) == 0)
-        {
-            setPhAlarm(MIN_AQUARIUM_PH, MAX_AQUARIUM_PH);
-        }
-        if (_memory.read<int>(ADDRESS_AQUARIUM_MIN_PH) == 0 || _memory.read<int>(ADDRESS_AQUARIUM_MAX_PH) == 0)
-        {
-            setHeaterAlarm(MIN_AQUARIUM_PH, MAX_AQUARIUM_PH);
-        }
+        Serial.print("Inicial: ");
+        Serial.println(_memory.read<int>(ADDRESS_AQUARIUM_MIN_TEMPERATURE));
+        Serial.print("Inicial: ");
+        Serial.println(_memory.read<int>(ADDRESS_AQUARIUM_MIN_PH));
+        Serial.println(_memory.read<bool>(ADDRESS_START));
+        if (_memory.read<bool>(ADDRESS_START))
+            return;
+
+        Serial.println("Eu tentei");
+
+        Serial.print(setHeaterAlarm(MIN_AQUARIUM_TEMP, MAX_AQUARIUM_TEMP) ? "Eu consegui papis: " : "Falhei papito: ");
+
+        Serial.print(getMinTemperature());
+        Serial.print(" - ");
+        Serial.println(getMaxTemperature());
         
-        _memory.loadDataFromEEPROM(rotinas);
+        Serial.print(setPhAlarm(MIN_AQUARIUM_PH, MAX_AQUARIUM_PH) ? "Eu consegui papis: " : "Falhei papito: ");
+        Serial.print(getMinPh());
+        Serial.print(" - ");
+        Serial.println(getMaxPh());
     }
     float map(float x, long in_min, long in_max, float out_min, float out_max) {
         return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
@@ -200,6 +206,7 @@ public:
     void handlerWaterPump(Date now) {
         try
         {
+            _memory.loadDataFromEEPROM(rotinas);
             for (const auto& routine : rotinas) {
                 if(routine.weekday[now.day_of_week]){
                     for (const auto& h : routine.horarios) {
