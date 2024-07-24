@@ -7,8 +7,8 @@
 #include "config.h"
 
 struct horario{
-    int start;
-    int end;
+    ushort start;
+    ushort end;
 };
 struct routine{
     bool weekday[7];
@@ -95,7 +95,10 @@ public:
     }
 
     void saveDataToEEPROM(const std::vector<routine> &data) {
-        int dataSize = data.size();
+        long dataSize = data.size();
+        Serial.print("Memoria: ");
+        Serial.println(dataSize);
+        
         byte buffer[SIZE_ROUTINES];
         int pos = 0;
         
@@ -109,7 +112,7 @@ public:
             Serial.println("Failed to initialise EEPROM");
             return;
         }
-        for (int i = 0; i < SIZE_ROUTINES; ++i) {
+        for (long i = 0; i < SIZE_ROUTINES; ++i) {
             EEPROM.write(i + ADDRESS_CYCLE_TIME_WATER_PUMP, buffer[i]);
         }
         EEPROM.commit();

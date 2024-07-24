@@ -22,26 +22,6 @@ Aquarium aquarium;
 using namespace std;
 
 // ============================================================================================
-//                                      CONVERT
-// ============================================================================================
-
-int tryParseToInt(const String *data)
-{
-  regex rgx("^[+-]?[0-9]+$");
-  smatch match;
-
-  string strToInt = data->c_str();
-
-  if (!regex_match(strToInt, match, rgx))
-    throw invalid_argument("Error: Impossivel converter a variavel para Int");
-
-  if (sizeof(strToInt) > sizeof(int))
-    throw out_of_range("Error: Parametro fora do intervalo");
-
-  return stoi(strToInt);
-}
-
-// ============================================================================================
 //                                      ENDPOINTS
 // ============================================================================================
 
@@ -95,12 +75,12 @@ DynamicJsonDocument updateConfigurationEndpoint(AsyncWebServerRequest *request)
 
   try
   {
-    int min_temperature = tryParseToInt(&request->getParam("min_temperature")->value());
-    int max_temperature = tryParseToInt(&request->getParam("max_temperature")->value());
-    int ph_min = tryParseToInt(&request->getParam("ph_max")->value());
-    int ph_max = tryParseToInt(&request->getParam("ph_min")->value());
-    int dosagem = tryParseToInt(&request->getParam("dosagem")->value());
-    int ppm = tryParseToInt(&request->getParam("ppm")->value());
+    int min_temperature = stoi((&request->getParam("min_temperature")->value())->c_str());
+    int max_temperature = stoi((&request->getParam("max_temperature")->value())->c_str());
+    int ph_min = stoi((&request->getParam("ph_max")->value())->c_str());
+    int ph_max = stoi((&request->getParam("ph_min")->value())->c_str());
+    int dosagem = stoi((&request->getParam("dosagem")->value())->c_str());
+    int ppm = stoi((&request->getParam("ppm")->value())->c_str());
 
     if (!aquarium.setHeaterAlarm(min_temperature, max_temperature))
     {
@@ -180,7 +160,7 @@ DynamicJsonDocument setLocaWifiEndpoint(AsyncWebServerRequest *request)
 }
 DynamicJsonDocument getRoutinesEndpoint(AsyncWebServerRequest *request)
 {
-  DynamicJsonDocument doc(5028);
+  DynamicJsonDocument doc(20500);
   JsonObject responseData = doc.to<JsonObject>();
   JsonArray dataArray = responseData.createNestedArray("data");
   
@@ -189,22 +169,22 @@ DynamicJsonDocument getRoutinesEndpoint(AsyncWebServerRequest *request)
     vector<routine> data;
     memory.loadDataFromEEPROM(data);
 
-  for (const auto &r : data)
-  {
-    JsonObject rotina = dataArray.createNestedObject();
-    JsonArray weekdays = rotina.createNestedArray("weekdays");
-    for (size_t i = 0; i <  end(r.weekday) - begin(r.weekday); ++i) {
-        weekdays.add(r.weekday[i]);
-    }
-
-    JsonArray horarios = rotina.createNestedArray("horarios");
-    for (const auto &h : r.horarios)
+    for (const auto &r : data)
     {
-      JsonObject horario = horarios.createNestedObject();
-      horario["start"] = h.start;
-      horario["end"] = h.end;
+      JsonObject rotina = dataArray.createNestedObject();
+      JsonArray weekdays = rotina.createNestedArray("weekdays");
+      for (size_t i = 0; i <  end(r.weekday) - begin(r.weekday); ++i) {
+          weekdays.add(r.weekday[i]);
+      }
+
+      JsonArray horarios = rotina.createNestedArray("horarios");
+      for (const auto &h : r.horarios)
+      {
+        JsonObject horario = horarios.createNestedObject();
+        horario["start"] = h.start;
+        horario["end"] = h.end;
+      }
     }
-  }
     responseData["status_code"] = 200;
 
     return doc;
@@ -233,7 +213,19 @@ DynamicJsonDocument setRoutinesEndpoint(AsyncWebServerRequest *request)
 TaskWrapper taskTemperatureControl;
 TaskWrapper taskSendInfo;
 TaskWrapper taskWaterPump;
+TaskWrapper taskOneWire;
+SemaphoreHandle_t isExecutingOneWire;
 
+void TaskOneWireControl()
+{
+  while (true)
+  {
+    xSemaphoreGive(isExecutingOneWire);
+    aquarium.updateTemperature();
+    vTaskDelay(1000 / portTICK_PERIOD_MS);
+  }
+  vTaskDelete(NULL);
+}
 void TaskAquariumTemperatureControl()
 {
   float temperature;
@@ -241,52 +233,57 @@ void TaskAquariumTemperatureControl()
   float Kp = 2.0f, Ki = 5.0f, Kd = 1.0f;
   double integralError;
   double output;
+
   while (true)
   {
-    temperature = aquarium.readTemperature();
-    float goalTemperature = (aquarium.getMaxTemperature() - aquarium.getMinTemperature()) / 2 + aquarium.getMinTemperature();
-    double erro = goalTemperature - temperature;
-    integralError += erro;
-    if (temperature == -127.0f)
+    if(xSemaphoreTake(isExecutingOneWire, portMAX_DELAY))
     {
-      aquarium.setStatusHeater(false);
+      temperature = aquarium.readTemperature();
+      float goalTemperature = (aquarium.getMaxTemperature() - aquarium.getMinTemperature()) / 2 + aquarium.getMinTemperature();
+      double erro = goalTemperature - temperature;
+      integralError += erro;
+      if (temperature == -127.0f)
+      {
+        aquarium.setStatusHeater(false);
+      }
+      flagTemeperature = temperature;
+      output = Kp * erro + Ki * integralError - Kd * (temperature - flagTemeperature);
+
+      aquarium.setStatusHeater(output < 0);
+
+      vTaskDelay(1000 / portTICK_PERIOD_MS);
     }
-    flagTemeperature = temperature;
-    output = Kp * erro + Ki * integralError - Kd * (temperature - flagTemeperature);
-
-    aquarium.setStatusHeater(output < 0);
-
-    vTaskDelay(1000 / portTICK_PERIOD_MS);
   }
 }
 void TaskSendSystemInformation()
 {
   while (true)
   {
-    DynamicJsonDocument doc(5028);
-    JsonObject responseData = doc.createNestedObject();
-    responseData["termopar"] = aquarium.readTemperature();
-    responseData["min"] = aquarium.getMinTemperature();
-    responseData["max"] = aquarium.getMaxTemperature();
-    responseData["rtc"] = clockUTC.getDateTime().getFullDate();
-    responseData["ph"] = aquarium.getPh();
-    responseData["ph_v"] = aquarium.getTensao();
+    if(xSemaphoreTake(isExecutingOneWire, portMAX_DELAY))
+    {
+      DynamicJsonDocument doc(5028);
+      JsonObject responseData = doc.createNestedObject();
+      responseData["termopar"] = aquarium.readTemperature();
+      responseData["min"] = aquarium.getMinTemperature();
+      responseData["max"] = aquarium.getMaxTemperature();
+      responseData["rtc"] = clockUTC.getDateTime().getFullDate();
+      responseData["ph"] = aquarium.getPh();
+      responseData["ph_v"] = aquarium.getTensao();
 
-    double voltagem = aquarium.getTurbidity() / 4095.0 * 3.3;
-    double NTU;
-    if (voltagem <= 2.5)
-      NTU = 3000;
-    else if (voltagem > 4.2)
-      NTU = 0;
-    else
-      NTU = -1120.4 * sqrt(voltagem) + 5742.3 * voltagem - 4353.8;
+      double voltagem = aquarium.getTurbidity() / 4095.0 * 3.3;
+      double NTU;
+      if (voltagem <= 2.5)
+        NTU = 3000;
+      else if (voltagem > 4.2)
+        NTU = 0;
+      else
+        NTU = -1120.4 * sqrt(voltagem) + 5742.3 * voltagem - 4353.8;
 
-    responseData["tubidity"] = NTU;
-    responseData["tubidity_2"] = voltagem;
-    responseData["tubidity_3"] = aquarium.getTurbidity();
-    connectionSocket.sendWsData("SystemInformation", responseData);
+      responseData["tubidity"] = NTU;
+      connectionSocket.sendWsData("SystemInformation", responseData);
 
-    vTaskDelay(50 / portTICK_PERIOD_MS);
+      vTaskDelay(50 / portTICK_PERIOD_MS);
+    }
   }
 }
 void TaskWaterPump()
@@ -328,64 +325,11 @@ void TaskPeristaultic()
   }
 }
 
-void IRAM_ATTR reset()
-{
-  memory.clear();
-}
-
 void setup()
 {
   Serial.begin(115200);
 
-  pinMode(PIN_BUTTON_RESET, INPUT);
-  attachInterrupt(PIN_BUTTON_RESET, reset, RISING);
-
-  vector<routine> data;
-
-  routine routines;
-  routines.weekday[0] = 1;
-  routines.weekday[1] = 1;
-  routines.weekday[2] = 1;
-  routines.weekday[3] = 1;
-  routines.weekday[4] = 1;
-
-  horario horario;
-  horario.start = 1260;
-  horario.end = 1320 - 20;
-
-  routines.horarios.push_back(horario);
-
-  data.push_back(routines);
-  data.push_back(routines);
-  data.push_back(routines);
-
-  
-  DynamicJsonDocument doc(5028);
-  JsonArray responseData = doc.createNestedArray("data");
-  for (const auto &r : data)
-  {
-    JsonObject rotina = responseData.createNestedObject();
-    JsonArray weekdays = rotina.createNestedArray("weekdays");
-    for (size_t i = 0; i <  end(r.weekday) - begin(r.weekday); ++i) {
-        weekdays.add(r.weekday[i]);
-    }
-
-    JsonArray horarios = rotina.createNestedArray("horarios");
-    for (const auto &h : r.horarios)
-    {
-      JsonObject horario = horarios.createNestedObject();
-      horario["start"] = h.start;
-      horario["end"] = h.end;
-    }
-  }
-  // serializeJson(doc, Serial);
-  Serial.println("");
-
   aquarium.begin();
-  memory.saveDataToEEPROM(data);
-    Serial.print(memory.read<int>(ADDRESS_AQUARIUM_MIN_PH));
-    Serial.print(" - ");
-    Serial.println(memory.read<int>(ADDRESS_AQUARIUM_MAX_PH));
 
   localNetwork.openConnection();
   connectionSocket.addEndpoint("/configuration/update", &updateConfigurationEndpoint);
@@ -395,10 +339,13 @@ void setup()
   connectionSocket.addEndpoint("/LocalConncention/set", &setLocaWifiEndpoint);
   connectionSocket.addEndpoint("/LocalNetwork/set", &connectIntoLocalNetwork);
   connectionSocket.init();
-
-  // taskTemperatureControl.begin(&TaskAquariumTemperatureControl, "TemperatureAquarium", 1300, 1);
-  taskWaterPump.begin(&TaskWaterPump, "WaterPump", 10000, 2);
-  taskSendInfo.begin(&TaskSendSystemInformation, "SendInfo", 10000, 3);
+  
+  
+  isExecutingOneWire = xSemaphoreCreateBinary();
+  taskOneWire.begin(&TaskOneWireControl, "OneWire", 1000, 1);
+  taskTemperatureControl.begin(&TaskAquariumTemperatureControl, "TemperatureAquarium", 1300, 2);
+  taskWaterPump.begin(&TaskWaterPump, "WaterPump", 10000, 3);
+  taskSendInfo.begin(&TaskSendSystemInformation, "SendInfo", 10000, 4);
 
   memory.write<bool>(ADDRESS_START, true);
 

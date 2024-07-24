@@ -2,32 +2,32 @@
 #define CONFIGURATION_H
 
 // CONTANTES
-#define WIFI_SSID "Aquapony"
-#define WIFI_PASSWORD "12345678"
-#define LOCAL_WIFI_SSID "SUELI"
-#define LOCAL_WIFI_PASSWORD "santos1965"
-#define WIFI_MAX_CONNECTIONS 1
-#define WIFI_DEFAULT_IP "192.168.0.4"
-#define WIFI_CHANNEL 1
-#define SERVER_PORT 80
-#define SOCKET_URL "/ws"
-#define EVENTS_URL "/events"
+#define WIFI_SSID                               "Aquapony"
+#define WIFI_PASSWORD                           "12345678"
+#define LOCAL_WIFI_SSID                         "SUELI"
+#define LOCAL_WIFI_PASSWORD                     "santos1965"
+#define WIFI_MAX_CONNECTIONS                    1
+#define WIFI_DEFAULT_IP                         "192.168.0.4"
+#define WIFI_CHANNEL                            1
+#define SERVER_PORT                             80
+#define SOCKET_URL                              "/ws"
+#define EVENTS_URL                              "/events"
 
-#define MIN_AQUARIUM_TEMP 23
-#define MAX_AQUARIUM_TEMP 28
-#define MIN_AQUARIUM_PH 6
-#define MAX_AQUARIUM_PH 7
+#define MIN_AQUARIUM_TEMP                       23
+#define MAX_AQUARIUM_TEMP                       28
+#define MIN_AQUARIUM_PH                         6
+#define MAX_AQUARIUM_PH                         7
 
-#define TAXA_DEFASAGEM_LOWER_SOLUTION_DKH 0.2
-#define DOSAGE_LOWER_SOLUTION_M3_L 13
+#define TAXA_DEFASAGEM_LOWER_SOLUTION_DKH       0.2
+#define DOSAGE_LOWER_SOLUTION_M3_L              13
 
-#define TAXA_DEFASAGEM_RAISE_SOLUTION_DKH 0.2
-#define DOSAGE_RAISE_SOLUTION_M3_L 13
+#define TAXA_DEFASAGEM_RAISE_SOLUTION_DKH       0.2
+#define DOSAGE_RAISE_SOLUTION_M3_L              13
 
-#define TAXA_DEFASAGEM_SEGURANCA_DKH 0.2
-#define AQUARIUM_VOLUME_L 10
-#define DEFAULT_TIME_DELAY_PH 24 * 60 * 60 * 1000
-#define FLUXO_PERISTALTIC_ML_S 100/60 
+#define TAXA_DEFASAGEM_SEGURANCA_DKH            0.2
+#define AQUARIUM_VOLUME_L                       10
+#define DEFAULT_TIME_DELAY_PH                   24 * 60 * 60 * 1000
+#define FLUXO_PERISTALTIC_ML_S                  100/60 
 
 /*
 ==========================================================================================================================================
@@ -84,30 +84,26 @@ T(em Kelvin)
 
 
 
-#define EEPROM_SIZE 4096
-
-
-#define PIN_BUTTON_RESET 5
-
-
 // INPUTS
-#define PIN_THERMOCOUPLE 14             // PINO: SENSOR DE TEMPERATURA 
-#define PIN_PH 35                       // PINO: SENSOR DE PH
-#define PIN_TURBIDITY 34                // PINO: SENSOR DE TURBIDADE
+#define PIN_BUTTON_RESET                                      5
+#define PIN_THERMOCOUPLE                                      14        // PINO: SENSOR DE TEMPERATURA 
+#define PIN_PH                                                35        // PINO: SENSOR DE PH
+#define PIN_TURBIDITY                                         34        // PINO: SENSOR DE TURBIDADE
 
-#define PIN_CLOCK_CLK 4
-#define PIN_CLOCK_DAT 2
-#define PIN_CLOCK_RST 15
+#define PIN_CLOCK_CLK                                         4
+#define PIN_CLOCK_DAT                                         2
+#define PIN_CLOCK_RST                                         15
 
 // OUTPUTS
-#define PIN_HEATER 22                   // PINO: AQUECEDOR
-#define PIN_WATER_PUMP 23               // PINO: BOMBA DE AGUA
-#define PIN_COOLING 13                  // NÃO IMPLEMENTADO
-#define PIN_PERISTAULTIC 18                  // NÃO IMPLEMENTADO
+#define PIN_HEATER                                            22        // PINO: AQUECEDOR
+#define PIN_WATER_PUMP                                        23        // PINO: BOMBA DE AGUA
+#define PIN_COOLING                                           13        // NÃO IMPLEMENTADO
+#define PIN_PERISTAULTIC                                      18        // NÃO IMPLEMENTADO
 
 
 
 // ENDERÇOS DE MEMORIA EEMPROM  
+#define EEPROM_SIZE                                           4096      // 4096U - 1U = 1 kB
 #define ADDRESS_START                                         0x000000
 #define ADDRESS_SSID                                          0x000001
 #define ADDRESS_PASSWORD                                      0x000005
@@ -120,7 +116,7 @@ T(em Kelvin)
 #define ADDRESS_PPM_PH                                        0x000021
 #define ADDRESS_LAST_APPLICATION_ACID_BUFFER_PH               0x000025
 #define ADDRESS_CYCLE_TIME_WATER_PUMP                         0x000029
-#define SIZE_ROUTINES                                         2046
+#define SIZE_ROUTINES                                         4000U
 
 
 
