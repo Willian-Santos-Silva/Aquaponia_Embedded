@@ -160,17 +160,28 @@ DynamicJsonDocument setLocaWifiEndpoint(AsyncWebServerRequest *request)
 }
 DynamicJsonDocument getRoutinesEndpoint(AsyncWebServerRequest *request)
 {
-  DynamicJsonDocument doc(20500);
+  DynamicJsonDocument doc(35000);
   JsonObject responseData = doc.to<JsonObject>();
-  JsonArray dataArray = responseData.createNestedArray("data");
+
+  if (!request->hasParam("weekday"))
+  {
+    responseData["status_code"] = 500;
+    responseData["description"] = "Parametro fora de escopo";
+
+    return responseData;
+  }
   
+  JsonArray dataArray = responseData.createNestedArray("data");
+
   try
   {
-    vector<routine> data;
-    memory.loadDataFromEEPROM(data);
-
+    vector<routine> data = aquarium.readRoutine();
+    int w = stoi((&request->getParam("weekday")->value())->c_str());
     for (const auto &r : data)
     {
+      if(!r.weekday[w]){
+        continue;
+      }
       JsonObject rotina = dataArray.createNestedObject();
       JsonArray weekdays = rotina.createNestedArray("weekdays");
       for (size_t i = 0; i <  end(r.weekday) - begin(r.weekday); ++i) {

@@ -5,6 +5,8 @@
 
 #include "config.h"
 #include "memory.h"
+#include "FS.h"
+#include "SPIFFS.h"
 
 #define PH4502C_TEMPERATURE_PIN 35
 #define PH4502C_PH_PIN 34
@@ -20,6 +22,7 @@ private:
     DS18B20 ds;
     Memory _memory;
 
+    float _temperature; 
     int sensorValue = 0; 
     unsigned long int avgValue; 
     float b;
@@ -30,7 +33,6 @@ public:
       SOLUTION_LOWER,
       SOLUTION_RAISER
     };
-    vector<routine> rotinas;
 
     Aquarium() : ds(PIN_THERMOCOUPLE)
     {
@@ -63,19 +65,117 @@ public:
         Serial.print(getMinPh());
         Serial.print(" - ");
         Serial.println(getMaxPh());
+
+        vector<routine> data;
+
+        for(int w = 0; w < 7; w++){
+            routine routines;
+            routines.weekday[0] = w == 0;
+            routines.weekday[1] = w == 1;
+            routines.weekday[2] = w == 2;
+            routines.weekday[3] = w == 3;
+            routines.weekday[4] = w == 4;
+            routines.weekday[5] = w == 5;
+            routines.weekday[6] = w == 6;
+
+            const int TEMPO_OXIGENACAO_DEFAULT = 1;
+            const int TEMPO_IRRIGACAO_DEFAULT = 1;
+            for(int i = 0; i < 1440; i += TEMPO_IRRIGACAO_DEFAULT + TEMPO_OXIGENACAO_DEFAULT){
+                horario horario;
+                horario.start = i;
+                horario.end = i + TEMPO_IRRIGACAO_DEFAULT;
+                
+                if(horario.end > 1440)
+                    break;
+
+                routines.horarios.push_back(horario);
+            }
+            data.push_back(routines);
+        }
+
+        writeRoutine(data);
+        data.clear();
     }
+    void writeRoutine(const vector<routine> &routines)
+    {
+        if (!SPIFFS.begin(true)) {
+            Serial.println("Falha ao montar o sistema de arquivos SPIFFS");
+            return;
+        }
+
+        // Escrever um arquivo
+        File file = SPIFFS.open("/data.bin", FILE_WRITE);
+        // Escrever o número de rotinas
+        uint32_t routinesSize = routines.size();
+        file.write((uint8_t *)&routinesSize, sizeof(routinesSize));
+
+        for (const auto &r : routines) {
+            // Escrever os dias da semana
+            file.write((uint8_t *)r.weekday, sizeof(r.weekday));
+
+            // Escrever o número de horários
+            uint32_t horariosSize = r.horarios.size();
+            file.write((uint8_t *)&horariosSize, sizeof(horariosSize));
+
+            // Escrever os horários
+            for (const auto &h : r.horarios) {
+                file.write((uint8_t *)&h, sizeof(h));
+            }
+        }
+        file.close();
+    }
+
+    vector<routine> readRoutine()
+    {
+        vector<routine> routines;
+        Serial.println("Lendo");
+        File file = SPIFFS.open("/data.bin", FILE_READ);
+        if (!file) {
+            Serial.println("Erro ao abrir o arquivo para leitura");
+            return routines;
+        }
+        
+        uint32_t routinesSize;
+        file.read((uint8_t *)&routinesSize, sizeof(routinesSize));
+        
+        for (uint32_t i = 0; i < routinesSize; ++i) {
+            routine r;
+
+            file.read((uint8_t *)r.weekday, sizeof(r.weekday));
+
+            uint32_t horariosSize;
+            file.read((uint8_t *)&horariosSize, sizeof(horariosSize));
+
+            for (uint32_t j = 0; j < horariosSize; ++j) {
+                horario h;
+                file.read((uint8_t *)&h, sizeof(h));
+                r.horarios.push_back(h);
+            }
+
+            routines.push_back(r);
+        }
+        file.close();
+        return routines;
+    }
+
     float map(float x, long in_min, long in_max, float out_min, float out_max) {
         return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
     }
-    float readTemperature()
+    void updateTemperature()
     {
-        if (ds.getNumberOfDevices() == 0)
-            return -127.0f;
+        if (ds.getNumberOfDevices() == 0){
+            _temperature = -127.0f;
+            return;
+        }
 
         ds.selectNext();
-        float temperature = ds.getTempC();
-        return temperature;
+        _temperature = ds.getTempC();
     }
+    float readTemperature()
+    {
+        return _temperature;
+    }
+
 
     float getPh()
     {
@@ -206,7 +306,7 @@ public:
     void handlerWaterPump(Date now) {
         try
         {
-            _memory.loadDataFromEEPROM(rotinas);
+            vector<routine> rotinas = readRoutine();
             for (const auto& routine : rotinas) {
                 if(routine.weekday[now.day_of_week]){
                     for (const auto& h : routine.horarios) {
@@ -218,6 +318,7 @@ public:
                     }
                 }
             }
+            rotinas.clear();
         }
         catch (const std::exception& e)
         {
