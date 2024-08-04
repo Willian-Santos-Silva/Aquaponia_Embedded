@@ -1,18 +1,26 @@
 #ifndef LOCAL_WIFI_H
 #define LOCAL_WIFI_H
 #include "config.h"
+#include "memory.h"
 #include <time.h>
 #include "Clock/Clock.h"
 #include <WiFi.h>
 
 class LocalNetwork
 {
+private:
+    Memory _memory;
 public:
   const char *ssid = LOCAL_WIFI_SSID;
   const char *password = LOCAL_WIFI_PASSWORD;
 
   void openConnection()
   {
+    if (!_memory.read<bool>(ADDRESS_START)){
+      ssid = _memory.read<const char*>(ADDRESS_SSID);
+      password = _memory.read<const char*>(ADDRESS_PASSWORD);
+    }
+    
     WiFi.begin(ssid, password);
     while (WiFi.status() != WL_CONNECTED)
     {
@@ -40,9 +48,12 @@ public:
     }
     Serial.println(&timeinfo, "%A, %B %d %Y %H:%M:%S zone %Z %z ");
   }
-  void setNetwork(String ssid, String password){
-    ssid = ssid;
-    password = password;
+  void setNetwork(const char* _ssid, const char* _password){
+    ssid = _ssid;
+    password = _password;
+
+    _memory.write<const char*>(ADDRESS_SSID, password);
+    _memory.write<const char*>(ADDRESS_PASSWORD, password);
   }
 
   String GetIp()

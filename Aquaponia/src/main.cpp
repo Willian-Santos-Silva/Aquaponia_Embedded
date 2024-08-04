@@ -40,10 +40,7 @@ DynamicJsonDocument connectIntoLocalNetwork(AsyncWebServerRequest *request)
 
   try
   {
-    String ssid = request->getParam("ssid")->value();
-    String password = request->getParam("password")->value();
-
-    localNetwork.setNetwork(ssid, password);
+    localNetwork.setNetwork(request->getParam("ssid")->value().c_str(), request->getParam("password")->value().c_str());
     localNetwork.openConnection();
 
     responseData["status_code"] = 200;
@@ -141,23 +138,7 @@ DynamicJsonDocument getConfigurationEndpoint(AsyncWebServerRequest *request)
     return responseData;
   }
 }
-DynamicJsonDocument setLocaWifiEndpoint(AsyncWebServerRequest *request)
-{
-  DynamicJsonDocument doc(5028);
-  JsonObject responseData = doc.createNestedObject("data");
 
-  if (!request->hasParam("ssid") || !request->hasParam("password"))
-  {
-    responseData["status_code"] = 500;
-    responseData["description"] = "Parametro fora de escopo";
-
-    return responseData;
-  }
-  responseData["status_code"] = 200;
-  responseData["description"] = "Definido com sucesso";
-
-  return responseData;
-}
 DynamicJsonDocument getRoutinesEndpoint(AsyncWebServerRequest *request)
 {
   DynamicJsonDocument doc(35000);
@@ -196,6 +177,8 @@ DynamicJsonDocument getRoutinesEndpoint(AsyncWebServerRequest *request)
         horario["end"] = h.end;
       }
     }
+
+    data.clear();
     responseData["status_code"] = 200;
 
     return doc;
@@ -347,8 +330,7 @@ void setup()
   connectionSocket.addEndpoint("/configuration/get", &getConfigurationEndpoint);
   connectionSocket.addEndpoint("/routine/get", &getRoutinesEndpoint);
   connectionSocket.addEndpoint("/routine/update", &setRoutinesEndpoint);
-  connectionSocket.addEndpoint("/LocalConncention/set", &setLocaWifiEndpoint);
-  connectionSocket.addEndpoint("/LocalNetwork/set", &connectIntoLocalNetwork);
+  connectionSocket.addEndpoint("/localNetwork/set", &connectIntoLocalNetwork);
   connectionSocket.init();
   
   

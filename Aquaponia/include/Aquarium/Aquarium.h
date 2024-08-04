@@ -15,7 +15,14 @@
 #define PH4502C_READING_INTERVAL 100
 #define PH4502C_READING_COUNT 10
 #define ADC_RESOLUTION 4096.0f
-
+struct horario{
+    ushort start;
+    ushort end;
+};
+struct routine{
+    bool weekday[7];
+    vector<horario> horarios;
+};
 class Aquarium
 {
 private:
@@ -356,5 +363,4 @@ public:
         return analogRead(PIN_TURBIDITY);
     }
 };
-
 #endif
