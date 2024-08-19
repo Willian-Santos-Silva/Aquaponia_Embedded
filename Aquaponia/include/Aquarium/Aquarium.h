@@ -52,30 +52,15 @@ public:
         pinMode(PIN_PH, INPUT);
         pinMode(PIN_TURBIDITY, INPUT);
 
-        Serial.print("Inicial: ");
-        Serial.println(_memory.read<int>(ADDRESS_AQUARIUM_MIN_TEMPERATURE));
-        Serial.print("Inicial: ");
-        Serial.println(_memory.read<int>(ADDRESS_AQUARIUM_MIN_PH));
-        Serial.println(_memory.read<bool>(ADDRESS_START));
         if (_memory.read<bool>(ADDRESS_START))
             return;
 
-        Serial.println("Eu tentei");
-
         Serial.print(setHeaterAlarm(MIN_AQUARIUM_TEMP, MAX_AQUARIUM_TEMP) ? "Eu consegui papis: " : "Falhei papito: ");
-
-        Serial.print(getMinTemperature());
-        Serial.print(" - ");
-        Serial.println(getMaxTemperature());
-        
         Serial.print(setPhAlarm(MIN_AQUARIUM_PH, MAX_AQUARIUM_PH) ? "Eu consegui papis: " : "Falhei papito: ");
-        Serial.print(getMinPh());
-        Serial.print(" - ");
-        Serial.println(getMaxPh());
 
         vector<routine> data;
 
-        for(int w = 0; w < 7; w++){
+        for(int w = 0; w < 1; w++){
             routine routines;
             routines.weekday[0] = w == 0;
             routines.weekday[1] = w == 1;
@@ -135,7 +120,6 @@ public:
     vector<routine> readRoutine()
     {
         vector<routine> routines;
-        Serial.println("Lendo");
         File file = SPIFFS.open("/data.bin", FILE_READ);
         if (!file) {
             Serial.println("Erro ao abrir o arquivo para leitura");

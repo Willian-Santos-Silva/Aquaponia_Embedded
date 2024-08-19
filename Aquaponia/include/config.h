@@ -6,7 +6,7 @@
 #define WIFI_PASSWORD                           "12345678"
 #define LOCAL_WIFI_SSID                         "SUELI"
 #define LOCAL_WIFI_PASSWORD                     "santos1965"
-#define WIFI_MAX_CONNECTIONS                    1
+#define WIFI_MAX_CONNECTIONS                    10
 #define WIFI_DEFAULT_IP                         "192.168.0.4"
 #define WIFI_CHANNEL                            1
 #define SERVER_PORT                             80

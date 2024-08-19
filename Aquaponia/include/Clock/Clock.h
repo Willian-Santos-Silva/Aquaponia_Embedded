@@ -35,7 +35,6 @@ public:
       setClock(timeinfo);
 
       Serial.println(getDateTime().getFullDate());
-      Serial.println(isRunningClock() ? "Rodando" : "Nao rodando");
     }
 
 
@@ -63,7 +62,7 @@ public:
     Date getDateTime()
     {
         if(!rtc.getDateTime(&now.hour, &now.minute, &now.second, &now.day, &now.month, &now.year, &now.day_of_week)){
-            Serial.println("Falha ao ler RTC");
+            // Serial.println("Falha ao ler RTC");
             return Date();
         }
         return now;

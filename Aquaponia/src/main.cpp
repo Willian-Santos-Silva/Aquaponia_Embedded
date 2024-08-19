@@ -5,6 +5,8 @@
 #include "Json/Json.h"
 #include "Clock/Date.h"
 #include "Connection/LocalNetwork.h"
+#include "Socket/LocalServer.h"
+#include "Socket/LocalWifi.h"
 #include "Socket/Socket.h"
 #include "Aquarium/Aquarium.h"
 
@@ -15,6 +17,8 @@
 
 Memory memory;
 LocalNetwork localNetwork;
+LocalServer localServer;
+LocalWifi localWifi;
 Clock clockUTC;
 Socket connectionSocket;
 Aquarium aquarium;
@@ -208,6 +212,7 @@ TaskWrapper taskTemperatureControl;
 TaskWrapper taskSendInfo;
 TaskWrapper taskWaterPump;
 TaskWrapper taskOneWire;
+TaskWrapper taskClientConnect;
 SemaphoreHandle_t isExecutingOneWire;
 
 void TaskOneWireControl()
@@ -275,7 +280,7 @@ void TaskSendSystemInformation()
 
       responseData["tubidity"] = NTU;
       connectionSocket.sendWsData("SystemInformation", responseData);
-
+      
       vTaskDelay(50 / portTICK_PERIOD_MS);
     }
   }
@@ -324,14 +329,17 @@ void setup()
   Serial.begin(115200);
 
   aquarium.begin();
-
+  // localWifi.openConnection();
+  
   localNetwork.openConnection();
-  connectionSocket.addEndpoint("/configuration/update", &updateConfigurationEndpoint);
-  connectionSocket.addEndpoint("/configuration/get", &getConfigurationEndpoint);
-  connectionSocket.addEndpoint("/routine/get", &getRoutinesEndpoint);
-  connectionSocket.addEndpoint("/routine/update", &setRoutinesEndpoint);
-  connectionSocket.addEndpoint("/localNetwork/set", &connectIntoLocalNetwork);
-  connectionSocket.init();
+  
+  localServer.addEndpoint("/configuration/update", &updateConfigurationEndpoint);
+  localServer.addEndpoint("/configuration/get", &getConfigurationEndpoint);
+  localServer.addEndpoint("/routine/get", &getRoutinesEndpoint);
+  localServer.addEndpoint("/routine/update", &setRoutinesEndpoint);
+  localServer.addEndpoint("/localNetwork/set", &connectIntoLocalNetwork);
+  localServer.init();
+  localServer.startSocket(&connectionSocket.socket);
   
   
   isExecutingOneWire = xSemaphoreCreateBinary();
