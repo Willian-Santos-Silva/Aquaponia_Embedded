@@ -1,3 +1,6 @@
+#ifndef TASK
+#define TASK
+
 #include <functional>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
@@ -45,3 +48,4 @@ private:
         }
     }
 };
+#endif

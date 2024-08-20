@@ -1,24 +1,24 @@
-#include <functional>
-#include <string.h>
-#include <regex>
 
 #include "Json/Json.h"
 #include "Clock/Date.h"
-#include "Connection/LocalNetwork.h"
-#include "Socket/LocalServer.h"
-#include "Socket/LocalWifi.h"
-#include "Socket/Socket.h"
+#include "WiFi/LocalNetwork.h"
+#include "WiFiServer/LocalServer.h"
+#include "WiFiServer/Socket.h"
 #include "Aquarium/Aquarium.h"
 
 #include "Clock/Clock.h"
 #include "rtos/TasksManagement.h"
-#include "memory.h"
-#include "config.h"
+#include "Base/memory.h"
+#include "Base/config.h"
+
+#include "BluetoothSerial.h"
+
+BluetoothSerial SerialBT;
+bool hasDevice = false;
 
 Memory memory;
 LocalNetwork localNetwork;
 LocalServer localServer;
-LocalWifi localWifi;
 Clock clockUTC;
 Socket connectionSocket;
 Aquarium aquarium;
@@ -208,12 +208,73 @@ DynamicJsonDocument setRoutinesEndpoint(AsyncWebServerRequest *request)
 //                                      TASKS
 // ============================================================================================
 
+
+TaskWrapper taskBluetoothOnReciveMessage;
+TaskWrapper taskBluetoothOnConnect;
+TaskWrapper taskBluetoothOnDisconnect;
+
 TaskWrapper taskTemperatureControl;
 TaskWrapper taskSendInfo;
 TaskWrapper taskWaterPump;
 TaskWrapper taskOneWire;
 TaskWrapper taskClientConnect;
 SemaphoreHandle_t isExecutingOneWire;
+
+void TaskBluetoothOnReciveMessage()
+{
+  while (true)
+  {
+    if (!SerialBT.available()){
+      vTaskDelay(1000 / portTICK_PERIOD_MS);
+      continue;
+    }
+
+    String receivedMessage = "";
+
+    while (SerialBT.available()) {
+      char c = (char)SerialBT.read();
+      
+      if(c == '\n')
+        continue;
+      
+      receivedMessage += c;
+    }
+
+    Serial.print("Mensagem recebida: ");
+    Serial.println(receivedMessage);
+    
+    vTaskDelay(1000 / portTICK_PERIOD_MS);
+  }
+  vTaskDelete(NULL);
+}
+
+void TaskBluetoothOnConnect()
+{
+  while (true)
+  {
+    if (SerialBT.hasClient() && !hasDevice) {
+      hasDevice = true;
+      Serial.println("Novo dispositivo conectado!");
+    }
+    
+    vTaskDelay(100 / portTICK_PERIOD_MS);
+  }
+  vTaskDelete(NULL);
+}
+
+void TaskBluetoothOnDisconnect()
+{
+  while (true)
+  {
+    if (!SerialBT.hasClient() && hasDevice) {
+      hasDevice = false;
+      Serial.println("Dispositivo desconectado!");
+    }
+    
+    vTaskDelay(100 / portTICK_PERIOD_MS);
+  }
+  vTaskDelete(NULL);
+}
 
 void TaskOneWireControl()
 {
@@ -327,9 +388,9 @@ void TaskPeristaultic()
 void setup()
 {
   Serial.begin(115200);
-
+  SerialBT.begin("AQP-DEVICE");
+  
   aquarium.begin();
-  // localWifi.openConnection();
   
   localNetwork.openConnection();
   
@@ -347,6 +408,10 @@ void setup()
   taskTemperatureControl.begin(&TaskAquariumTemperatureControl, "TemperatureAquarium", 1300, 2);
   taskWaterPump.begin(&TaskWaterPump, "WaterPump", 10000, 3);
   taskSendInfo.begin(&TaskSendSystemInformation, "SendInfo", 10000, 4);
+
+  // taskBluetoothOnReciveMessage.begin(&TaskBluetoothOnReciveMessage, "BluetoothOnReciveMessage", 100, 3);
+  // taskBluetoothOnConnect.begin(&TaskBluetoothOnConnect, "BluetoothOnConnect", 100, 3);
+  // taskBluetoothOnDisconnect.begin(&TaskBluetoothOnDisconnect, "BluetoothOnDisconnect", 100, 3);
 
   memory.write<bool>(ADDRESS_START, true);
 
