@@ -55,8 +55,8 @@ public:
         if (_memory.read<bool>(ADDRESS_START))
             return;
 
-        Serial.print(setHeaterAlarm(MIN_AQUARIUM_TEMP, MAX_AQUARIUM_TEMP) ? "Eu consegui papis: " : "Falhei papito: ");
-        Serial.print(setPhAlarm(MIN_AQUARIUM_PH, MAX_AQUARIUM_PH) ? "Eu consegui papis: " : "Falhei papito: ");
+        Serial.print(setHeaterAlarm(MIN_AQUARIUM_TEMP, MAX_AQUARIUM_TEMP) ? "Eu consegui papis" : "Falhei papito");
+        Serial.print(setPhAlarm(MIN_AQUARIUM_PH, MAX_AQUARIUM_PH) ? "Eu consegui papis" : "Falhei papito");
 
         vector<routine> data;
 

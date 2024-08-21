@@ -2,7 +2,10 @@
 #define MEMORY_H
 
 #include <EEPROM.h>
-#include <vector>
+
+// #include <iostream>
+// #include <cstring>
+// #include <sstream>
 
 #include "Base/config.h"
 
@@ -22,24 +25,13 @@ public:
             Serial.println("Falha ao inicializar eeprom");
             return;
         }
+        // char* buffer;
+        // std::ostringstream oss;
+        // oss << data;
+        // std::string str = oss.str();
+        // std::strncpy(buffer, str.c_str(), sizeof(T) - 1);
         
-        // if constexpr (std::is_same<T, const char*>::value)
-        // {
-        //     int i = 0;
-        //     while (data[i] != '\0') {
-        //         EEPROM.write(address, data[i]);
-        //         address++;
-        //         i++;
-        //     }
-        // }
-        // else
-        // {
-        //     for (int i = 0; i < sizeof(T); i++)
-        //     {
-        //         EEPROM.write(address, (data >> (8 * i)) & 0xFF);
-        //         address++;
-        //     }
-        // }
+        EEPROM.put(address, data);
 
         EEPROM.commit();
     }

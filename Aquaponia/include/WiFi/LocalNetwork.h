@@ -74,7 +74,7 @@ public:
 
     while (!WiFi.softAP(WIFI_SSID, WIFI_PASSWORD))
     {
-      ESP_LOGW(TAG, ".");
+      Serial.println(".");
       delay(1000);
     }
 
@@ -86,8 +86,6 @@ public:
 
     return true;
   }
-    
-    
 
   String GetIp()
   {

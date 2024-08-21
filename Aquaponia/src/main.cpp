@@ -1,9 +1,10 @@
-
 #include "Json/Json.h"
 #include "Clock/Date.h"
+
 #include "WiFi/LocalNetwork.h"
 #include "WiFiServer/LocalServer.h"
 #include "WiFiServer/Socket.h"
+
 #include "Aquarium/Aquarium.h"
 
 #include "Clock/Clock.h"
@@ -11,9 +12,21 @@
 #include "Base/memory.h"
 #include "Base/config.h"
 
-#include "BluetoothSerial.h"
+#include <BLEDevice.h>
+#include <BLEServer.h>
+#include <BLEUtils.h>
+#include <BLE2902.h>
 
-BluetoothSerial SerialBT;
+#define SERVICE_UUID        "12345678-1234-1234-1234-123456789012"
+#define CHARACTERISTIC_UUID "87654321-4321-4321-4321-210987654321"
+
+BLEServer *pServer = NULL;
+BLECharacteristic *pCharacteristic = NULL;
+bool deviceConnected = false;
+
+// #include "BluetoothSerial.h"
+
+// BluetoothSerial SerialBT;
 bool hasDevice = false;
 
 Memory memory;
@@ -32,14 +45,14 @@ using namespace std;
 DynamicJsonDocument connectIntoLocalNetwork(AsyncWebServerRequest *request)
 {
   DynamicJsonDocument doc(5028);
-  JsonObject responseData = doc.createNestedObject("data");
+  JsonObject resp = doc.createNestedObject("data");
 
   if (!request->hasParam("password") || !request->hasParam("ssid"))
   {
-    responseData["status_code"] = 500;
-    responseData["description"] = "Parametro fora de escopo";
+    resp["status_code"] = 500;
+    resp["description"] = "Parametro fora de escopo";
 
-    return responseData;
+    return resp;
   }
 
   try
@@ -47,31 +60,31 @@ DynamicJsonDocument connectIntoLocalNetwork(AsyncWebServerRequest *request)
     localNetwork.setNetwork(request->getParam("ssid")->value().c_str(), request->getParam("password")->value().c_str());
     localNetwork.openConnection();
 
-    responseData["status_code"] = 200;
-    responseData["description"] = "Conectado com sucesso";
+    resp["status_code"] = 200;
+    resp["description"] = "Conectado com sucesso";
   }
 
   catch (const std::exception &e)
   {
-    responseData["status_code"] = 505;
+    resp["status_code"] = 505;
     string err = e.what();
-    responseData["description"] = err;
-    return responseData;
+    resp["description"] = err;
+    return resp;
   }
 
-  return responseData;
+  return resp;
 }
 DynamicJsonDocument updateConfigurationEndpoint(AsyncWebServerRequest *request)
 {
   DynamicJsonDocument doc(5028);
-  JsonObject responseData = doc.createNestedObject("data");
+  JsonObject resp = doc.createNestedObject("data");
 
   if (!request->hasParam("min_temperature") || !request->hasParam("max_temperature") || !request->hasParam("ph_min") || !request->hasParam("ph_max") || !request->hasParam("dosagem") || !request->hasParam("ppm"))
   {
-    responseData["status_code"] = 500;
-    responseData["description"] = "Parametro fora de escopo";
+    resp["status_code"] = 500;
+    resp["description"] = "Parametro fora de escopo";
 
-    return responseData;
+    return resp;
   }
 
   try
@@ -85,37 +98,37 @@ DynamicJsonDocument updateConfigurationEndpoint(AsyncWebServerRequest *request)
 
     if (!aquarium.setHeaterAlarm(min_temperature, max_temperature))
     {
-      responseData["status_code"] = 500;
-      responseData["description"] = "Falha ao definir intervalo de temperatura, tente novamente";
+      resp["status_code"] = 500;
+      resp["description"] = "Falha ao definir intervalo de temperatura, tente novamente";
 
-      return responseData;
+      return resp;
     }
     if (!aquarium.setPhAlarm(ph_max, ph_max))
     {
-      responseData["status_code"] = 500;
-      responseData["description"] = "Falha ao definir intervalo de ph, tente novamente";
+      resp["status_code"] = 500;
+      resp["description"] = "Falha ao definir intervalo de ph, tente novamente";
 
-      return responseData;
+      return resp;
     }
 
-    responseData["status_code"] = 200;
-    responseData["description"] = "Temperatura salva com sucesso";
-    return responseData;
+    resp["status_code"] = 200;
+    resp["description"] = "Temperatura salva com sucesso";
+    return resp;
   }
 
   catch (const std::exception &e)
   {
-    responseData["status_code"] = 505;
+    resp["status_code"] = 505;
     string err = e.what();
-    responseData["description"] = err;
-    return responseData;
+    resp["description"] = err;
+    return resp;
   }
 }
 DynamicJsonDocument getConfigurationEndpoint(AsyncWebServerRequest *request)
 {
   
   DynamicJsonDocument doc(5028);
-  JsonObject responseData = doc.createNestedObject("data");
+  JsonObject resp = doc.createNestedObject("data");
 
   try
   {
@@ -124,39 +137,39 @@ DynamicJsonDocument getConfigurationEndpoint(AsyncWebServerRequest *request)
     Serial.print(" - ");
     Serial.println(aquarium.getMaxPh());
 
-    responseData["min_temperature"] = aquarium.getMinTemperature();
-    responseData["max_temperature"] = aquarium.getMaxTemperature();
-    responseData["min_ph"] = aquarium.getMinPh();
-    responseData["max_ph"] = aquarium.getMaxPh();
-    responseData["dosagem"] = aquarium.getPPM();
-    responseData["rtc"] = clockUTC.getDateTime().getFullDate();
+    resp["min_temperature"] = aquarium.getMinTemperature();
+    resp["max_temperature"] = aquarium.getMaxTemperature();
+    resp["min_ph"] = aquarium.getMinPh();
+    resp["max_ph"] = aquarium.getMaxPh();
+    resp["dosagem"] = aquarium.getPPM();
+    resp["rtc"] = clockUTC.getDateTime().getFullDate();
 
-    responseData["status_code"] = 200;
-    return responseData;
+    resp["status_code"] = 200;
+    return resp;
   }
   catch (const std::exception &e)
   {
-    responseData["status_code"] = 505;
+    resp["status_code"] = 505;
     string err = e.what();
-    responseData["description"] = err;
-    return responseData;
+    resp["description"] = err;
+    return resp;
   }
 }
 
 DynamicJsonDocument getRoutinesEndpoint(AsyncWebServerRequest *request)
 {
   DynamicJsonDocument doc(35000);
-  JsonObject responseData = doc.to<JsonObject>();
+  JsonObject resp = doc.to<JsonObject>();
 
   if (!request->hasParam("weekday"))
   {
-    responseData["status_code"] = 500;
-    responseData["description"] = "Parametro fora de escopo";
+    resp["status_code"] = 500;
+    resp["description"] = "Parametro fora de escopo";
 
-    return responseData;
+    return resp;
   }
   
-  JsonArray dataArray = responseData.createNestedArray("data");
+  JsonArray dataArray = resp.createNestedArray("data");
 
   try
   {
@@ -183,25 +196,25 @@ DynamicJsonDocument getRoutinesEndpoint(AsyncWebServerRequest *request)
     }
 
     data.clear();
-    responseData["status_code"] = 200;
+    resp["status_code"] = 200;
 
     return doc;
   }
   catch (const std::exception &e)
   {
-    responseData["status_code"] = 505;
+    resp["status_code"] = 505;
     string err = e.what();
-    responseData["description"] = err;
+    resp["description"] = err;
     return doc;
   }
 }
 DynamicJsonDocument setRoutinesEndpoint(AsyncWebServerRequest *request)
 {
   DynamicJsonDocument doc(5028);
-  JsonObject responseData = doc.createNestedObject("data");
+  JsonObject resp = doc.createNestedObject("data");
 
-  responseData["status_code"] = 200;
-  return responseData;
+  resp["status_code"] = 200;
+  return resp;
 }
 
 // ============================================================================================
@@ -224,56 +237,91 @@ void TaskBluetoothOnReciveMessage()
 {
   while (true)
   {
-    if (!SerialBT.available()){
-      vTaskDelay(1000 / portTICK_PERIOD_MS);
-      continue;
-    }
+    // if (!SerialBT.available()){
+    //   vTaskDelay(1000 / portTICK_PERIOD_MS);
+    //   continue;
+    // }
 
-    String receivedMessage = "";
+    // String receivedMessage = "";
 
-    while (SerialBT.available()) {
-      char c = (char)SerialBT.read();
+    // while (SerialBT.available()) {
+    //   char c = (char)SerialBT.read();
       
-      if(c == '\n')
-        continue;
+    //   if(c == '\n')
+    //     continue;
       
-      receivedMessage += c;
-    }
+    //   receivedMessage += c;
+    // }
 
-    Serial.print("Mensagem recebida: ");
-    Serial.println(receivedMessage);
+    // Serial.print("Mensagem recebida: ");
+    // Serial.println(receivedMessage);
     
     vTaskDelay(1000 / portTICK_PERIOD_MS);
   }
   vTaskDelete(NULL);
 }
-
 void TaskBluetoothOnConnect()
 {
+  Serial.println("CONNECT");
   while (true)
   {
-    if (SerialBT.hasClient() && !hasDevice) {
-      hasDevice = true;
-      Serial.println("Novo dispositivo conectado!");
-    }
+    // if (SerialBT.hasClient() && !hasDevice) {
+    //   hasDevice = true;
+    //   Serial.println("Novo dispositivo conectado!");
+    // }
+    
+    Serial.println("C");
+
+    vTaskDelay(1000 / portTICK_PERIOD_MS);
+  }
+  vTaskDelete(NULL);
+}
+void TaskBluetoothOnDisconnect()
+{
+  Serial.println("TASK DISCONNECT");
+  while (true)
+  {
+    // if (!SerialBT.hasClient() && hasDevice) {
+    //   hasDevice = false;
+    //   Serial.println("Dispositivo desconectado!");
+    // }
+    Serial.println("D");
     
     vTaskDelay(100 / portTICK_PERIOD_MS);
   }
   vTaskDelete(NULL);
 }
 
-void TaskBluetoothOnDisconnect()
+void TaskSendSystemInformation()
 {
   while (true)
   {
-    if (!SerialBT.hasClient() && hasDevice) {
-      hasDevice = false;
-      Serial.println("Dispositivo desconectado!");
+    if(xSemaphoreTake(isExecutingOneWire, portMAX_DELAY))
+    {
+      DynamicJsonDocument doc(5028);
+      JsonObject resp = doc.createNestedObject();
+      resp["termopar"] = aquarium.readTemperature();
+      resp["min"] = aquarium.getMinTemperature();
+      resp["max"] = aquarium.getMaxTemperature();
+      resp["rtc"] = clockUTC.getDateTime().getFullDate();
+      resp["ph"] = aquarium.getPh();
+      resp["ph_v"] = aquarium.getTensao();
+
+      double voltagem = aquarium.getTurbidity() / 4095.0 * 3.3;
+      double NTU;
+      if (voltagem <= 2.5)
+        NTU = 3000;
+      else if (voltagem > 4.2)
+        NTU = 0;
+      else
+        NTU = -1120.4 * sqrt(voltagem) + 5742.3 * voltagem - 4353.8;
+
+      resp["tubidity"] = NTU;
+      connectionSocket.sendWsData("SystemInformation", resp);
+      
+      vTaskDelay(50 / portTICK_PERIOD_MS);
     }
-    
-    vTaskDelay(100 / portTICK_PERIOD_MS);
   }
-  vTaskDelete(NULL);
 }
 
 void TaskOneWireControl()
@@ -312,37 +360,6 @@ void TaskAquariumTemperatureControl()
       aquarium.setStatusHeater(output < 0);
 
       vTaskDelay(1000 / portTICK_PERIOD_MS);
-    }
-  }
-}
-void TaskSendSystemInformation()
-{
-  while (true)
-  {
-    if(xSemaphoreTake(isExecutingOneWire, portMAX_DELAY))
-    {
-      DynamicJsonDocument doc(5028);
-      JsonObject responseData = doc.createNestedObject();
-      responseData["termopar"] = aquarium.readTemperature();
-      responseData["min"] = aquarium.getMinTemperature();
-      responseData["max"] = aquarium.getMaxTemperature();
-      responseData["rtc"] = clockUTC.getDateTime().getFullDate();
-      responseData["ph"] = aquarium.getPh();
-      responseData["ph_v"] = aquarium.getTensao();
-
-      double voltagem = aquarium.getTurbidity() / 4095.0 * 3.3;
-      double NTU;
-      if (voltagem <= 2.5)
-        NTU = 3000;
-      else if (voltagem > 4.2)
-        NTU = 0;
-      else
-        NTU = -1120.4 * sqrt(voltagem) + 5742.3 * voltagem - 4353.8;
-
-      responseData["tubidity"] = NTU;
-      connectionSocket.sendWsData("SystemInformation", responseData);
-      
-      vTaskDelay(50 / portTICK_PERIOD_MS);
     }
   }
 }
@@ -385,10 +402,68 @@ void TaskPeristaultic()
   }
 }
 
+
+
+
+// Callback para conexão e desconexão
+class MyServerCallbacks: public BLEServerCallbacks {
+    void onConnect(BLEServer* pServer) {
+        deviceConnected = true;
+        Serial.println("Cliente conectado");
+    }
+
+    void onDisconnect(BLEServer* pServer) {
+        deviceConnected = false;
+        Serial.println("Cliente desconectado");
+    }
+};
+
+// Callback para características
+class MyCallbacks: public BLECharacteristicCallbacks {
+    void onWrite(BLECharacteristic *pCharacteristic) {
+        std::string value = pCharacteristic->getValue();
+        if (value.length() > 0) {
+            Serial.println("Mensagem recebida: " + String(value.c_str()));
+        }
+    }
+};
+
 void setup()
 {
   Serial.begin(115200);
-  SerialBT.begin("AQP-DEVICE");
+  // SerialBT.begin("AQP-DEVICE");
+
+// Inicializa o dispositivo BLE
+    BLEDevice::init("ESP32_BLE");
+
+    // Cria o servidor BLE
+    pServer = BLEDevice::createServer();
+    pServer->setCallbacks(new MyServerCallbacks());
+
+    // Cria o serviço BLE
+    BLEService *pService = pServer->createService(SERVICE_UUID);
+
+    // Cria a característica BLE
+    pCharacteristic = pService->createCharacteristic(
+                                          CHARACTERISTIC_UUID,
+                                          BLECharacteristic::PROPERTY_READ |
+                                          BLECharacteristic::PROPERTY_WRITE
+                                        );
+
+    // Define o callback para a característica
+    pCharacteristic->setCallbacks(new MyCallbacks());
+
+    // Adiciona a característica ao serviço
+    pService->start();
+
+    // Inicializa o anúncio
+    BLEAdvertising *pAdvertising = BLEDevice::getAdvertising();
+    pAdvertising->addServiceUUID(SERVICE_UUID);
+    pAdvertising->setScanResponse(true);
+    pAdvertising->setMinPreferred(0x06);  // Funciona melhor com 0x06
+    pAdvertising->setMinPreferred(0x12);
+    BLEDevice::startAdvertising();
+
   
   aquarium.begin();
   
@@ -409,9 +484,9 @@ void setup()
   taskWaterPump.begin(&TaskWaterPump, "WaterPump", 10000, 3);
   taskSendInfo.begin(&TaskSendSystemInformation, "SendInfo", 10000, 4);
 
-  // taskBluetoothOnReciveMessage.begin(&TaskBluetoothOnReciveMessage, "BluetoothOnReciveMessage", 100, 3);
-  // taskBluetoothOnConnect.begin(&TaskBluetoothOnConnect, "BluetoothOnConnect", 100, 3);
-  // taskBluetoothOnDisconnect.begin(&TaskBluetoothOnDisconnect, "BluetoothOnDisconnect", 100, 3);
+  // taskBluetoothOnReciveMessage.begin(&TaskBluetoothOnReciveMessage, "BluetoothOnReciveMessage", 1000, 5);
+  // taskBluetoothOnConnect.begin(&TaskBluetoothOnConnect, "BluetoothOnConnect", 1000, 6);
+  // taskBluetoothOnDisconnect.begin(&TaskBluetoothOnDisconnect, "BluetoothOnDisconnect", 1000, 7);
 
   memory.write<bool>(ADDRESS_START, true);
 

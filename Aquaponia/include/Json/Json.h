@@ -74,12 +74,5 @@ public:
     {
         return Json(get<String>(name));
     }
-    
-
-    // #define PRINT_VARIABLE_NAME(variable) printVariable(#variable);
-    // string printVariable(const char *name)
-    // {
-    // return name;
-    // }
 };
 #endif

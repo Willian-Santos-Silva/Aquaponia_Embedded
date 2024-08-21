@@ -4,11 +4,7 @@
 #include <AsyncTCP.h>
 #include <ESPAsyncWebServer.h>
 #include <AsyncJson.h>
-#include <ESPmDNS.h>
 
-#include <IPAddress.h>
-
-#include <WString.h>
 #include "Base/config.h"
 #include "Json/Json.h"
 
@@ -21,7 +17,6 @@ class LocalServer
 private:
     AsyncEventSource events;
     AsyncWebServer server;
-    // AsyncServer server;
     AsyncClient *client = nullptr;
 
 public:
@@ -70,13 +65,7 @@ void LocalServer::addEndpoint(const char *pathname, ActionFunction action)
 
 void LocalServer::init()
 {
-  if (!MDNS.begin("esp32")) {
-    Serial.println("Erro ao iniciar mDNS");
-    return;
-  }
-  
   server.begin();
-  MDNS.addService("http", "tcp", 80);
 }
 
 void LocalServer::startSocket(AsyncWebSocket *serverSocket)

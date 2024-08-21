@@ -1,7 +1,7 @@
 #ifndef CLOCK_H
 #define CLOCK_H
 
-#include <ErriezDS1302.h>
+#include "ErriezDS1302.h"
 
 #include <time.h>
 #include "Clock/Date.h"
@@ -50,9 +50,6 @@ public:
         }
 
         Serial.println("Sucesso ao definir horario");
-    }
-    void setAlarm(Date date)
-    {
     }
 
     bool isRunningClock()
