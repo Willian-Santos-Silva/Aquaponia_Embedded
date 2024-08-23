@@ -8,60 +8,50 @@
 #include <AsyncTCP.h>
 #include <ESPAsyncWebServer.h>
 #include <AsyncJson.h>
+#include <vector>
+
+struct Hotposts{
+  String ssid;
+  int32_t rssi;
+  int32_t channel;
+  String encryptionType;
+};
 
 class LocalNetwork
 {
 private:
-    Memory _memory;
+  Memory _memory;
+  const char *_ssid = LOCAL_WIFI_SSID;
+  const char *_password = LOCAL_WIFI_PASSWORD;
 public:
-  const char *ssid = LOCAL_WIFI_SSID;
-  const char *password = LOCAL_WIFI_PASSWORD;
-
-  void openConnection()
-  {
-    if(StartAP()){
-      Serial.printf("Mode: ", (WiFi.getMode() == WIFI_MODE_AP ? "AP" : "STA") );
-    }
-    
-    int timezone = -3;
-    Clock clk;
-    clk.setTime(timezone);
-
-    delay(100);
-  }
 
   void printLocalTime(){
-    struct tm timeinfo;
-    if(!getLocalTime(&timeinfo)){
-      Serial.println("Falha ao obter horário");
-      return;
-    }
-    Serial.println(&timeinfo, "%A, %B %d %Y %H:%M:%S zone %Z %z ");
-  }
-  void setNetwork(const char* _ssid, const char* _password){
-    ssid = _ssid;
-    password = _password;
-
-    _memory.write<const char*>(ADDRESS_SSID, password);
-    _memory.write<const char*>(ADDRESS_PASSWORD, password);
-  }
-
-  bool StartSTA()
+    
+  bool StartSTA(std::string ssid, std::string password)
   {
     WiFi.mode(WIFI_STA);
-    WiFi.begin(ssid, password);
-
+    WiFi.begin(ssid.c_str(), password.c_str());
 
     Serial.println("Connecting to WiFi..");
-    Serial.printf("SSID: %s - Senha: %s", ssid, password);
+    Serial.printf("SSID: %s - Senha: %s\r\n\n", ssid.c_str(), password.c_str());
 
     if (WiFi.waitForConnectResult() != WL_CONNECTED) {
       Serial.printf("WiFi Failed!\n");
       return false;
     }
 
+    WiFi.setAutoReconnect(true);
     Serial.printf("Conectado");    
     Serial.printf("IP: %s\r\n", WiFi.localIP().toString());
+    
+
+    _memory.write<const char*>(ADDRESS_SSID, password.c_str());
+    _memory.write<const char*>(ADDRESS_PASSWORD, password.c_str());
+
+    int timezone = -3;
+    Clock clk;
+    clk.setTime(timezone);
+
     return true;
   }
 
@@ -87,9 +77,67 @@ public:
     return true;
   }
 
+  std::vector<Hotposts> sanningHotpost()
+  {
+    WiFi.disconnect();
+    
+    int scanResult;
+    std::vector<Hotposts> listHotposts;
+
+    Serial.println(F("Starting WiFi scan..."));
+    int hotposts = WiFi.scanNetworks();
+
+
+    if (hotposts <= 0) {
+      Serial.println(F("No networks found"));
+      return listHotposts;
+    } 
+    
+    Serial.printf(PSTR("%d networks found:\n"), hotposts);
+
+    for (int8_t i = 0; i < hotposts; i++) {
+      Hotposts h;
+      h.ssid = WiFi.SSID(i);
+      h.rssi = WiFi.RSSI(i);
+      h.channel = WiFi.channel(i);
+      h.encryptionType = getEncryptionType(WiFi.encryptionType(i));
+
+      listHotposts.push_back(h);
+      
+      // Serial.printf("Rede %d: SSID: %s, RSSI: %d dBm, Canal: %d, Encriptacao: %s\r\n",
+      //                     i,
+      //                     WiFi.SSID(i).c_str(),
+      //                     WiFi.RSSI(i),
+      //                     WiFi.channel(i),
+      //                     WiFi.dnsIP(i),
+      //                     getEncryptionType(WiFi.encryptionType(i)));
+    }
+    return listHotposts;
+  }
+
+  String getEncryptionType(wifi_auth_mode_t authMode) {
+    switch (authMode) {
+        case WIFI_AUTH_OPEN:
+            return "Open";
+        case WIFI_AUTH_WEP:
+            return "WEP";
+        case WIFI_AUTH_WPA_PSK:
+            return "WPA_PSK";
+        case WIFI_AUTH_WPA2_PSK:
+            return "WPA2_PSK";
+        case WIFI_AUTH_WPA_WPA2_PSK:
+            return "WPA_WPA2_PSK";
+        case WIFI_AUTH_WPA2_ENTERPRISE:
+            return "WPA2_ENTERPRISE";
+        default:
+            return "Unknown";
+    }
+  }
+
   String GetIp()
   {
     return WiFi.localIP().toString();
   }
 };
+
 #endif
