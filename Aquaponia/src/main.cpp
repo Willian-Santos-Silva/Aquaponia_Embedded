@@ -18,9 +18,17 @@
 
 #define SERVICE_UUID        "02be3f08-b74b-4038-aaa4-5020d1582eba"
 #define CHARACTERISTIC_UUID "6fd27a35-0b8a-40cb-ad23-3f3f6c0d8626"
+#define CHARACTERISTIC_INFO_UUID "eeaaf2ad-5264-47a1-a49f-5b274ab1a0fe"
+#define CHARACTERISTIC_SYSTEM_INFO_UUID "eeaaf2ad-5264-47a1-a49f-5b274ab1a0fe"
+#define CHARACTERISTIC_ROUTINES_UUID "eeaaf2ad-5264-47a1-a49f-5b274ab1a0fe"
+#define CHARACTERISTIC_CONFIGURATION_UUID "eeaaf2ad-5264-47a1-a49f-5b274ab1a0fe"
 
 BLEServer *pServer = NULL;
-BLECharacteristic *pCharacteristic = NULL;
+BLECharacteristic *pCharacteristic;
+BLECharacteristic *pCharacteristicInfo;
+BLECharacteristic *pCharacteristicRoutines;
+BLECharacteristic *pCharacteristicConfiguration;
+BLECharacteristic *pCharacteristicSystemInformation;
 bool deviceConnected = false;
 
 bool hasDevice = false;
@@ -209,6 +217,11 @@ DynamicJsonDocument setRoutinesEndpoint(AsyncWebServerRequest *request)
   JsonObject resp = doc.createNestedObject("data");
 
   resp["status_code"] = 200;
+
+  String resultString;
+  serializeJson(resp, resultString);
+  pCharacteristicRoutines->setValue(resultString.c_str());
+
   return resp;
 }
 
@@ -229,64 +242,6 @@ TaskWrapper taskClientConnect;
 TaskWrapper taskScanWiFiDevices;
 SemaphoreHandle_t isExecutingOneWire;
 
-void TaskBluetoothOnReciveMessage()
-{
-  while (true)
-  {
-    // if (!SerialBT.available()){
-    //   vTaskDelay(1000 / portTICK_PERIOD_MS);
-    //   continue;
-    // }
-
-    // String receivedMessage = "";
-
-    // while (SerialBT.available()) {
-    //   char c = (char)SerialBT.read();
-
-    //   if(c == '\n')
-    //     continue;
-
-    //   receivedMessage += c;
-    // }
-
-    // Serial.print("Mensagem recebida: ");
-    // Serial.println(receivedMessage);
-
-    vTaskDelay(1000 / portTICK_PERIOD_MS);
-  }
-  vTaskDelete(NULL);
-}
-void TaskBluetoothOnConnect()
-{
-  Serial.println("CONNECT");
-  while (true)
-  {
-    // if (SerialBT.hasClient() && !hasDevice) {
-    //   hasDevice = true;
-    //   Serial.println("Novo dispositivo conectado!");
-    // }
-
-    Serial.println("C");
-
-    vTaskDelay(1000 / portTICK_PERIOD_MS);
-  }
-  vTaskDelete(NULL);
-}
-void TaskBluetoothOnDisconnect()
-{
-  Serial.println("TASK DISCONNECT");
-  while (true)
-  {
-    // if (!SerialBT.hasClient() && hasDevice) {
-    //   hasDevice = false;
-    //   Serial.println("Dispositivo desconectado!");
-    // }
-    Serial.println("D");
-
-    vTaskDelay(100 / portTICK_PERIOD_MS);
-  }
-  vTaskDelete(NULL);
-}
 
 void TaskSendSystemInformation()
 {
@@ -302,6 +257,7 @@ void TaskSendSystemInformation()
       resp["rtc"] = clockUTC.getDateTime().getFullDate();
       resp["ph"] = aquarium.getPh();
       resp["ph_v"] = aquarium.getTensao();
+      resp["ip"] = localNetwork.GetIp().c_str();
 
       double voltagem = aquarium.getTurbidity() / 4095.0 * 3.3;
       double NTU;
@@ -314,17 +270,17 @@ void TaskSendSystemInformation()
 
       resp["tubidity"] = NTU;
 
-      // String resultString;
-      // serializeJson(resp, resultString);
-      // pCharacteristic->setValue(resultString.c_str());
-
+      String resultString;
+      serializeJson(resp, resultString);
+      pCharacteristicSystemInformation->setValue(resultString.c_str());
+      pCharacteristicSystemInformation->notify();
+      
       connectionSocket.sendWsData("SystemInformation", resp);
 
       vTaskDelay(50 / portTICK_PERIOD_MS);
     }
   }
 }
-
 void TaskOneWireControl()
 {
   while (true)
@@ -407,27 +363,27 @@ void TaskScanWiFiDevices(){
 
   while (true)
   {
-      vector<Hotposts> lHotposts = localNetwork.sanningHotpost();
-      DynamicJsonDocument doc(5028);
-      JsonArray resp = doc.createNestedArray("data");
-      for (const auto &h : lHotposts)
-      {
-        JsonObject hotpost = resp.createNestedObject();
+    vector<Hotposts> lHotposts = localNetwork.sanningHotpost();
+    DynamicJsonDocument doc(5028);
+    JsonArray resp = doc.createNestedArray("data");
+    for (const auto &h : lHotposts)
+    {
+      JsonObject hotpost = resp.createNestedObject();
 
-        hotpost["ssid"] = h.ssid;
-        hotpost["rssi"] = h.rssi;
-        hotpost["channel"] = h.channel;
-        hotpost["encryptionType"] = h.encryptionType;
-      }
-      
-      String resultString;
-      serializeJson(resp, resultString);
-      
-      lHotposts.clear();
-
-      pCharacteristic->setValue(resultString.c_str());
-      pCharacteristic->notify();
+      hotpost["ssid"] = h.ssid;
+      hotpost["rssi"] = h.rssi;
+      hotpost["channel"] = h.channel;
+      hotpost["encryptionType"] = h.encryptionType;
+    }
     
+    String resultString;
+    serializeJson(resp, resultString);
+    
+    lHotposts.clear();
+
+    pCharacteristic->setValue(resultString.c_str());
+    pCharacteristic->notify();
+  
     vTaskDelay(5000 / portTICK_PERIOD_MS);
   }
 }
@@ -448,6 +404,16 @@ class MyServerCallbacks: public BLEServerCallbacks {
 
 // Callback para características
 class BLEDiscoveryDevicesCallbacks: public BLECharacteristicCallbacks {
+  void onRead(BLECharacteristic *pCharacteristic) {
+    std::string value = pCharacteristic->getValue();
+    if (value.length() > 0) {
+      Serial.printf("Mensagem enviada: %s\r\n", value.c_str());
+    }
+  }
+};
+
+// Callback para características
+class BLEDiscoveryConnectDevicesCallbacks: public BLECharacteristicCallbacks {
     void onWrite(BLECharacteristic *pCharacteristic) {
       std::string value = pCharacteristic->getValue();
       if (value.length() <= 0) 
@@ -470,31 +436,22 @@ class BLEDiscoveryDevicesCallbacks: public BLECharacteristicCallbacks {
       Serial.printf("\r\n\nSSID: %s\r\nSenha: %s\r\n\n", ssid.c_str(), password.c_str());
 
       
+      localServer.addEndpoint("/configuration/update", &updateConfigurationEndpoint);
+      localServer.addEndpoint("/configuration/get", &getConfigurationEndpoint);
+      localServer.addEndpoint("/routine/get", &getRoutinesEndpoint);
+      localServer.addEndpoint("/routine/update", &setRoutinesEndpoint);
+      localServer.addEndpoint("/localNetwork/set", &connectIntoLocalNetwork);
+      localServer.init();
+      localServer.startSocket(&connectionSocket.socket);
+
       localNetwork.StartSTA(ssid.c_str(), password.c_str());
+      pCharacteristic->setValue(localNetwork.GetIp().c_str());
+      pCharacteristic->notify();
+      
     }
 
     void onRead(BLECharacteristic *pCharacteristic) {
-      vector<Hotposts> lHotposts = localNetwork.sanningHotpost();
-      DynamicJsonDocument doc(5028);
-      JsonArray resp = doc.createNestedArray("data");
-      for (const auto &h : lHotposts)
-      {
-        JsonObject hotpost = resp.createNestedObject();
-
-        hotpost["ssid"] = h.ssid;
-        hotpost["rssi"] = h.rssi;
-        hotpost["channel"] = h.channel;
-        hotpost["encryptionType"] = h.encryptionType;
-      }
-      
-      String resultString;
-      serializeJson(resp, resultString);
-      
-      lHotposts.clear();
-
-
-      pCharacteristic->setValue(resultString.c_str());
-      pCharacteristic->notify();
+      pCharacteristic->setValue(localNetwork.GetIp().c_str());
 
       std::string value = pCharacteristic->getValue();
       if (value.length() > 0) {
@@ -503,6 +460,7 @@ class BLEDiscoveryDevicesCallbacks: public BLECharacteristicCallbacks {
   }
 };
 
+
 void setup()
 {
   Serial.begin(115200);
@@ -510,43 +468,34 @@ void setup()
   BLEDevice::init("[AQP] AQUAPONIA");
   pServer = BLEDevice::createServer();
   pServer->setCallbacks(new MyServerCallbacks());
-  BLEService *pService = pServer->createService(SERVICE_UUID);
-  BLEDescriptor BLEDiscoveryDevicesDescriptor(BLEUUID((uint16_t)0x2903));
+
   
-  pCharacteristic = pService->createCharacteristic(CHARACTERISTIC_UUID, BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_WRITE);
+  
+
+  BLEService *pService = pServer->createService(SERVICE_UUID);
+  pCharacteristic = pService->createCharacteristic(CHARACTERISTIC_UUID, BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_NOTIFY);
+  pCharacteristicInfo = pService->createCharacteristic(CHARACTERISTIC_INFO_UUID, BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_WRITE);
+
+  pCharacteristic->setValue("[]");
+  pCharacteristicInfo->setValue("0.0.0.0");
 
   pCharacteristic->setCallbacks(new BLEDiscoveryDevicesCallbacks());
-  pCharacteristic->addDescriptor(&BLEDiscoveryDevicesDescriptor);
+  pCharacteristicInfo->setCallbacks(new BLEDiscoveryConnectDevicesCallbacks());
+
   pService->start();
 
   BLEAdvertising *pAdvertising = BLEDevice::getAdvertising();
   pAdvertising->addServiceUUID(SERVICE_UUID);
+  pAdvertising->start();
 
-  pServer->getAdvertising()->start();
 
   aquarium.begin();
-
-  // localNetwork.StartAP();
-  
-
-  
-
-
-  // localServer.addEndpoint("/configuration/update", &updateConfigurationEndpoint);
-  // localServer.addEndpoint("/configuration/get", &getConfigurationEndpoint);
-  // localServer.addEndpoint("/routine/get", &getRoutinesEndpoint);
-  // localServer.addEndpoint("/routine/update", &setRoutinesEndpoint);
-  // localServer.addEndpoint("/localNetwork/set", &connectIntoLocalNetwork);
-  // localServer.init();
-  // localServer.startSocket(&connectionSocket.socket);
-
-
   isExecutingOneWire = xSemaphoreCreateBinary();
   taskOneWire.begin(&TaskOneWireControl, "OneWire", 1000, 1);
   taskTemperatureControl.begin(&TaskAquariumTemperatureControl, "TemperatureAquarium", 1300, 2);
   taskWaterPump.begin(&TaskWaterPump, "WaterPump", 10000, 3);
   taskSendInfo.begin(&TaskSendSystemInformation, "SendInfo", 10000, 4);
-  // taskScanWiFiDevices.begin(&TaskScanWiFiDevices, "ScanningWiFi", 10000, 5);
+  taskScanWiFiDevices.begin(&TaskScanWiFiDevices, "ScanningWiFi", 10000, 5);
 
   memory.write<bool>(ADDRESS_START, true);
 

@@ -24,9 +24,6 @@ private:
   const char *_ssid = LOCAL_WIFI_SSID;
   const char *_password = LOCAL_WIFI_PASSWORD;
 public:
-
-  void printLocalTime(){
-    
   bool StartSTA(std::string ssid, std::string password)
   {
     WiFi.mode(WIFI_STA);
