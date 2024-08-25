@@ -8,13 +8,11 @@
 
 #include <IPAddress.h>
 
-#include <WString.h>
 #include "Base/config.h"
-#include "Json/Json.h"
 
 using namespace std;
 
-using ActionFunction = std::function<DynamicJsonDocument(AsyncWebServerRequest *request)>;
+// using ActionFunction = std::function<DynamicJsonDocument(AsyncWebServerRequest *request)>;
 
 class Socket
 {
@@ -23,13 +21,13 @@ private:
 public:
     AsyncWebSocket socket;
     Socket();
-    void sendWsDataToClient(AsyncWebSocketClient *client, DynamicJsonDocument data);
     void onClientConnect(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len);
     void onMessage(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len);
     void onClientDisconnect(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len);
     void onWebSocketEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len);
 
-    void sendWsData(String actionName, DynamicJsonDocument json);
+    void sendWsDataToClient(AsyncWebSocketClient *client, DynamicJsonDocument data);
+    void sendWsData(string actionName, DynamicJsonDocument* json);
 
     void init();
 };
@@ -45,18 +43,18 @@ void Socket::sendWsDataToClient(AsyncWebSocketClient *client, DynamicJsonDocumen
     String resultString;
     serializeJson(data, resultString);
 
-    socket.text(client->id(), resultString);
+    socket.text(client->id(), resultString.c_str());
 }
 
-void Socket::sendWsData(String actionName, DynamicJsonDocument data)
+void Socket::sendWsData(string actionName, DynamicJsonDocument* data)
 {
-    data["action"] = actionName;
-    data["data"] = data;
+    (*data)["action"] = actionName;
+    (*data)["data"] = *data;
 
     String resultString;
-    serializeJson(data, resultString);
+    serializeJson((*data), resultString);
 
-    socket.textAll(resultString);
+    socket.textAll(resultString.c_str());
 }
 
 void Socket::onWebSocketEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len)

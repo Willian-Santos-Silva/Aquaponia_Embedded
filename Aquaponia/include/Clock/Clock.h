@@ -27,26 +27,24 @@ public:
     void setTime(int timezone){
       struct tm timeinfo;
       configTime(timezone * 3600, 0, "pool.ntp.org");
+
       if(!getLocalTime(&timeinfo, 50000U)){
-        Serial.println("Falha ao obter horario");
-        return;
+        throw std::runtime_error("Falha ao obter horario");
       }
+
       Serial.println(&timeinfo, "%A, %B %d %Y %H:%M:%S zone %Z %z ");
-      setClock(timeinfo);
+      setRTC(timeinfo);
 
       Serial.println(getDateTime().getFullDate());
     }
 
-
-    void setClock(tm date)
+    void setRTC(tm date)
     {
         if (!isRunningClock())
             rtc.clockEnable(true);
 
-
         if(!rtc.setDateTime(date.tm_hour, date.tm_min, date.tm_sec, date.tm_mday, date.tm_mon + 1, date.tm_year + 1900, date.tm_wday)){
-            Serial.println("Erro ao definir data e hora");
-            return;
+            throw std::runtime_error("Erro ao definir data e hora");
         }
 
         Serial.println("Sucesso ao definir horario");
@@ -59,9 +57,9 @@ public:
     Date getDateTime()
     {
         if(!rtc.getDateTime(&now.hour, &now.minute, &now.second, &now.day, &now.month, &now.year, &now.day_of_week)){
-            // Serial.println("Falha ao ler RTC");
-            return Date();
+            throw std::runtime_error("Falha ao ler RTC");
         }
+        
         return now;
     }
 };

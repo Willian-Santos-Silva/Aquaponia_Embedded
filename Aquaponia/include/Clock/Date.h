@@ -1,5 +1,6 @@
 #ifndef DATE_H
 #define DATE_H
+#include <Arduino.h>
 #include <stdint.h>
 #include <time.h>
 
@@ -13,8 +14,9 @@ struct Date
     uint8_t second;
     uint8_t day_of_week;
     
-    String getFullDate(){
-        return String(year) + "/" + String(month) + "/" + String(day) + " " + String(hour) + ":" + String(minute) + ":" + String(second);
+    const char* getFullDate(){
+        return (String(year) + "/" + String(month) + "/" + String(day) + " " +
+               String(hour) + ":" + String(minute) + ":" + String(second)).c_str();
     }
 };
 

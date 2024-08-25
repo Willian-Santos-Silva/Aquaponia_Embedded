@@ -7,7 +7,6 @@
 
 #include <AsyncTCP.h>
 #include <ESPAsyncWebServer.h>
-#include <AsyncJson.h>
 #include <vector>
 
 struct Hotposts{
@@ -78,7 +77,6 @@ public:
   {
     WiFi.disconnect();
     
-    int scanResult;
     std::vector<Hotposts> listHotposts;
 
     Serial.println(F("Starting WiFi scan..."));
@@ -90,9 +88,9 @@ public:
       return listHotposts;
     } 
     
-    Serial.printf(PSTR("%d networks found:\n"), hotposts);
+    Serial.printf(PSTR("%d networks found\n"), hotposts);
 
-    for (int8_t i = 0; i < hotposts; i++) {
+    for (int i = 0; i < hotposts; i++) {
       Hotposts h;
       h.ssid = WiFi.SSID(i);
       h.rssi = WiFi.RSSI(i);
@@ -133,7 +131,7 @@ public:
 
   String GetIp()
   {
-    return WiFi.localIP().toString();
+    return WiFi.localIP().toString() == IPAddress().toString()? WiFi.localIP().toString() : "";
   }
 };
 

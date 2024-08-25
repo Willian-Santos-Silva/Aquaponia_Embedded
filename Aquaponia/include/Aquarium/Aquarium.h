@@ -1,28 +1,21 @@
 #ifndef AQUARIUM_H
 #define AQUARIUM_H
 
+#include <OneWire.h>
 #include <DS18B20.h>
+#include <vector>
 
-#include "config.h"
-#include "memory.h"
+#include "Base/config.h"
+#include "Base/memory.h"
+#include "Clock/Clock.h"
+#include "Clock/Date.h"
+
 #include "FS.h"
 #include "SPIFFS.h"
+#include "routines.h"
 
-#define PH4502C_TEMPERATURE_PIN 35
-#define PH4502C_PH_PIN 34
-#define PH4502C_PH_TRIGGER_PIN 14 
-#define PH4502C_CALIBRATION 14.8f
-#define PH4502C_READING_INTERVAL 100
-#define PH4502C_READING_COUNT 10
-#define ADC_RESOLUTION 4096.0f
-struct horario{
-    ushort start;
-    ushort end;
-};
-struct routine{
-    bool weekday[7];
-    vector<horario> horarios;
-};
+using namespace std;
+
 class Aquarium
 {
 private:
@@ -30,10 +23,6 @@ private:
     Memory _memory;
 
     float _temperature; 
-    int sensorValue = 0; 
-    unsigned long int avgValue; 
-    float b;
-    int buf[10],temp;
 
 public:
     enum solution {
@@ -55,8 +44,9 @@ public:
         if (_memory.read<bool>(ADDRESS_START))
             return;
 
-        Serial.print(setHeaterAlarm(MIN_AQUARIUM_TEMP, MAX_AQUARIUM_TEMP) ? "Eu consegui papis" : "Falhei papito");
-        Serial.print(setPhAlarm(MIN_AQUARIUM_PH, MAX_AQUARIUM_PH) ? "Eu consegui papis" : "Falhei papito");
+        Serial.printf(setHeaterAlarm(MIN_AQUARIUM_TEMP, MAX_AQUARIUM_TEMP) ? "TEMPERATURAS DEFINIDAS" : "FALHA AO DEFINIR INTERVALO DE TEMPERATURA");
+        Serial.printf("\n");
+        Serial.printf(setPhAlarm(MIN_AQUARIUM_PH, MAX_AQUARIUM_PH) ? "PH DEFINIDO" : "FALHA AO DEFINIR INTERVALO DE PH");
 
         vector<routine> data;
 
@@ -84,7 +74,6 @@ public:
             }
             data.push_back(routines);
         }
-
         writeRoutine(data);
         data.clear();
     }
@@ -149,9 +138,6 @@ public:
         return routines;
     }
 
-    float map(float x, long in_min, long in_max, float out_min, float out_max) {
-        return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
-    }
     void updateTemperature()
     {
         if (ds.getNumberOfDevices() == 0){
@@ -167,9 +153,11 @@ public:
         return _temperature;
     }
 
-
     float getPh()
-    {
+    {    
+        unsigned long int avgValue; 
+        int buf[10],temp;
+        
         float Vmax = 3.3;
         int Dmax = 4095;
         
@@ -340,11 +328,17 @@ public:
         return _memory.read<int>(ADDRESS_PPM_PH);
     }
 
-
-   
-   int getTurbidity()
+    int getTurbidity()
     {
-        return analogRead(PIN_TURBIDITY);
+        double voltagem = analogRead(PIN_TURBIDITY) / 4095.0 * 3.3;
+
+        if (voltagem <= 2.5)
+            return 3000;
+
+        if (voltagem > 4.2)
+            return 0;
+            
+        return -1120.4 * sqrt(voltagem) + 5742.3 * voltagem - 4353.8;
     }
 };
 #endif

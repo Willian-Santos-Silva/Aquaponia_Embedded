@@ -1,16 +1,12 @@
 #ifndef LOCAL_SEVER_H
 #define LOCAL_SEVER_H
 
-#include <AsyncTCP.h>
 #include <ESPAsyncWebServer.h>
 #include <AsyncJson.h>
 
 #include "Base/config.h"
-#include "Json/Json.h"
 
 using namespace std;
-
-using ActionFunction = std::function<DynamicJsonDocument(AsyncWebServerRequest *request)>;
 
 class LocalServer
 {
@@ -21,19 +17,17 @@ private:
 
 public:
     LocalServer();
-    void sendWsDataToClient(AsyncWebSocketClient *client, Json data);
     void onClientConnect(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len);
     void onMessage(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len);
     void onClientDisconnect(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len);
     void onWebSocketEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len);
     static void onClientConnected(void *arg, AsyncClient *client);
 
-    void sendWsData(Json json);
 
     void init();
     void startSocket(AsyncWebSocket *serverSocket);
 
-    void addEndpoint(const char *pathname, ActionFunction action);
+    void addEndpoint(const char *pathname, std::function<DynamicJsonDocument (DynamicJsonDocument* request)> action);
     void handlerEvents();
 };
 
@@ -44,22 +38,43 @@ LocalServer::LocalServer() : server(80), events("/events")
     handlerEvents();
     
     server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
-        request->send(200, "text/html", "<h1>Olá, ESP32 está no modo AP!</h1>");
+        request->send(200, "text/html", "<h1>Olá, ESP32 está no modo STA!</h1>");
     });
 
 }
 
-void LocalServer::addEndpoint(const char *pathname, ActionFunction action)
+void LocalServer::addEndpoint(const char *pathname, std::function<DynamicJsonDocument (DynamicJsonDocument* request)> action)
 {
     server.on(pathname, HTTP_GET, [action](AsyncWebServerRequest *request){
-        DynamicJsonDocument result = action(request);
-        JsonObject jsonResult = result.as<JsonObject>();
+      JsonObject jsonResult;
+      String resultString;
 
-        String resultString;
-        serializeJson(result, resultString);
-        Serial.println(resultString);
+      try{
+        const char* data = "{}";
+        if(request->hasParam("data")){
+          data = request->getParam("data")->value().c_str();
+        }
 
-        request->send(static_cast<int>(jsonResult["status_code"]), "text/json", resultString);
+        DynamicJsonDocument docRequest(request->getParam("data")->size());
+        deserializeJson(docRequest, data);
+        delete data;
+
+        DynamicJsonDocument doc = action(&docRequest);
+        jsonResult = doc.as<JsonObject>();
+        serializeJson(doc, resultString);
+      }
+      catch (const std::exception &e)
+      {
+        DynamicJsonDocument doc(500);
+        jsonResult = doc.to<JsonObject>();
+        jsonResult["status_code"] = 505;
+        jsonResult["status_description"] = e.what();
+        serializeJson(doc, resultString);
+      }
+
+      Serial.printf("===================================\n%s\n===================================", resultString.c_str());
+
+      request->send(200, "text/json", resultString);
     });
 }
 
