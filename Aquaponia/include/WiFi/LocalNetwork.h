@@ -131,7 +131,12 @@ public:
 
   String GetIp()
   {
-    return WiFi.localIP().toString() == IPAddress().toString()? WiFi.localIP().toString() : "";
+    return WiFi.localIP().toString();
+  }
+
+  bool isConnect()
+  {
+    return WiFi.isConnected();
   }
 };
 

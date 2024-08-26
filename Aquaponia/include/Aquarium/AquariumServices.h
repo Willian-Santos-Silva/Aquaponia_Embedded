@@ -45,15 +45,14 @@ AquariumServices::~AquariumServices()
 DynamicJsonDocument AquariumServices::getSystemInformation()
 {
     DynamicJsonDocument doc(5028);
-    JsonObject resp = doc.createNestedObject();
-    resp["termopar"] = _aquarium->readTemperature();
-    resp["min"] = _aquarium->getMinTemperature();
-    resp["max"] = _aquarium->getMaxTemperature();
-    resp["rtc"] = clockUTC.getDateTime().getFullDate();
-    resp["ph"] = _aquarium->getPh();
-    resp["ph_v"] = _aquarium->getTensao();
-    resp["ip"] = localNetwork.GetIp().c_str();
-    resp["tubidity"] = _aquarium->getTurbidity();
+    doc["temperatura"] = _aquarium->readTemperature();
+    // doc["rtc"] = clockUTC.getDateTime().getFullDate();
+    doc["ph"] = _aquarium->getPh();
+    doc["ph_v"] = _aquarium->getTensao();
+    // doc["ip"] = localNetwork.GetIp().c_str();
+    doc["status_heater"] = _aquarium->getHeaterStatus();
+    doc["status_water_pump"] = _aquarium->getWaterPumpStatus();
+    //remaining_time_irrigation 
     
     return doc;
 }
@@ -86,8 +85,8 @@ DynamicJsonDocument AquariumServices::getConfiguration(){
     doc["max_temperature"] = _aquarium->getMaxTemperature();
     doc["min_ph"] = _aquarium->getMinPh();
     doc["max_ph"] = _aquarium->getMaxPh();
-    doc["dosagem"] = _aquarium->getPPM();
-    doc["rtc"] = clockUTC.getDateTime().getFullDate();
+    doc["ppm"] = _aquarium->getPPM();
+    // doc["rtc"] = clockUTC.getDateTime().getFullDate();
 
     return doc;
 }

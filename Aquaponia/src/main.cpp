@@ -12,10 +12,11 @@
 #include "Base/config.h"
 #include "Bluetooth/BluetoothCallback.h"
 #include "Bluetooth/BluetoothService.h"
-
 #include <BLEDevice.h>
 #include <BLEServer.h>
+#include <BLEUtils.h>
 #include <BLE2902.h>
+#include "esp_gattc_api.h"
 
 BLEServer *pServer = NULL;
 BLEService *pService;
@@ -63,18 +64,18 @@ void TaskSendSystemInformation()
   {
     if(xSemaphoreTake(isExecutingOneWire, portMAX_DELAY))
     {
-      Serial.println("\n********** SEND INFORMATION **********");
+      Serial.println("\n********** SEND INFORMATION **********\n");
       try
       {
         DynamicJsonDocument doc = aquariumServices.getSystemInformation();
 
-        String resultString;
+        std::string resultString;
         serializeJson(doc, resultString);
         
-        // bleSystemInformationCharacteristic->setValue(resultString.c_str());
-        // bleSystemInformationCharacteristic->notify();
+        bleSystemInformationCharacteristic->setValue(resultString);
+        bleSystemInformationCharacteristic->notify();
         // connectionSocket.sendWsData("SystemInformation", &doc);
-        Serial.printf("data: %s", resultString);
+        Serial.printf("data: %s\n", resultString.c_str());
         
         doc.clear();
       }
@@ -82,9 +83,9 @@ void TaskSendSystemInformation()
       {
           Serial.printf("erro: %s\n", e.what());
       }
-      Serial.println("\n**************** END *****************");
+      Serial.println("\n**************** END *****************\n");
 
-      vTaskDelay(50 / portTICK_PERIOD_MS);
+      vTaskDelay(1000 / portTICK_PERIOD_MS);
     }
   }
 }
@@ -93,16 +94,16 @@ void TaskOneWireControl()
   while (true)
   {
     xSemaphoreGive(isExecutingOneWire);
-    Serial.println("\n********** ONE WIRE INFORMATION **********");
     try
     {
       aquarium.updateTemperature();
     }
     catch (const std::exception& e)
     {
+    Serial.println("\n********** ONE WIRE INFORMATION **********\n");
         Serial.printf("erro: %s\n", e.what());
+    Serial.println("\n**************** END *****************\n");
     }
-    Serial.println("\n**************** END *****************");
 
     vTaskDelay(1000 / portTICK_PERIOD_MS);
   }
@@ -141,41 +142,53 @@ void TaskWaterPump()
 {
   while (true)
   {
-    Serial.println("\n********** WATER INFORMATION **********");
     try
     {
         aquariumServices.handlerWaterPump();
     }
     catch (const std::exception& e)
     {
+    Serial.println("\n********** WATER INFORMATION **********\n");
       Serial.printf("erro: %s\n", e.what());
+    Serial.println("\n**************** END *****************\n");
     }
-    Serial.println("\n**************** END *****************");
-    vTaskDelay(1000 / portTICK_PERIOD_MS);
+    vTaskDelay(6000 / portTICK_PERIOD_MS);
   }
 }
 void TaskPeristaultic()
 {
   while (true)
   {
-    Serial.println("\n********** PERISTAULTIC INFORMATION **********");
     try
     {
       aquariumServices.controlPeristaultic();
     }
     catch (const std::exception& e)
     {
+    Serial.println("\n********** PERISTAULTIC INFORMATION **********\n");
         Serial.printf("erro: %s\n", e.what());
+    Serial.println("\n**************** END *****************\n");
     }
-    Serial.println("\n**************** END *****************");
 
-    vTaskDelay(60000 / portTICK_PERIOD_MS);
+    vTaskDelay(500 / portTICK_PERIOD_MS);
   }
 }
 void TaskScanWiFiDevices(){
-
   while (true)
   {
+    if(localNetwork.isConnect()) {
+      DynamicJsonDocument resp(512);
+      std::string resultString;
+      resp["ip"] = localNetwork.GetIp().c_str();
+      serializeJson(resp, resultString);
+
+      bleWiFiCharacteristic->setValue(resultString);
+      bleWiFiCharacteristic->notify();
+
+      vTaskDelay(5000 / portTICK_PERIOD_MS);
+      return;
+    }
+
     vector<Hotposts> lHotposts = localNetwork.sanningHotpost();
     DynamicJsonDocument doc(5028);
     JsonArray resp = doc.createNestedArray("data");
@@ -191,16 +204,13 @@ void TaskScanWiFiDevices(){
     }
     lHotposts.clear();
     
-    String resultString;
+    std::string resultString;
     serializeJson(resp, resultString);
     
-    // bleWiFiCharacteristic->setValue(resultString.c_str());
-    // bleWiFiCharacteristic->notify();
-    // connectionSocket.sendWsData("WiFiDevices", &doc);
-    Serial.println("============================");
-    Serial.println(resultString);
-    Serial.println("============================");
-    
+    bleWiFiCharacteristic->setValue(resultString);
+    bleWiFiCharacteristic->notify();
+    // // connectionSocket.sendWsData("WiFiDevices", &doc);
+
     doc.clear();
     resp.clear();
     vTaskDelay(5000 / portTICK_PERIOD_MS);
@@ -236,6 +246,9 @@ class MyServerCallbacks: public BLEServerCallbacks {
 
 DynamicJsonDocument updateConfigurationEndpoint(DynamicJsonDocument *doc)
 {
+  Serial.println("========================================");
+  Serial.println("TENTANDO ATUALIZAR CONFIGURACOES");
+  Serial.println("========================================");
   if (!doc->containsKey("min_temperature") || !doc->containsKey("max_temperature") || 
       !doc->containsKey("ph_min") || !doc->containsKey("ph_max") || 
       !doc->containsKey("dosagem") || !doc->containsKey("ppm"))
@@ -253,6 +266,9 @@ DynamicJsonDocument updateConfigurationEndpoint(DynamicJsonDocument *doc)
 }
 DynamicJsonDocument getConfigurationEndpoint(DynamicJsonDocument *doc)
 {
+  Serial.println("========================================");
+  Serial.println("TENTANDO ATUALIZAR ROTINA");
+  Serial.println("========================================");
   DynamicJsonDocument response(5028);
 
   response["data"] = aquariumServices.getConfiguration();
@@ -262,6 +278,9 @@ DynamicJsonDocument getConfigurationEndpoint(DynamicJsonDocument *doc)
 }
 DynamicJsonDocument getRoutinesEndpoint(DynamicJsonDocument *doc)
 {
+  Serial.println("========================================");
+  Serial.println("TENTANDO PEGAR ROTINAS");
+  Serial.println("========================================");
   if (!doc->containsKey("weekday"))
   {
     throw std::runtime_error("Parametro fora de escopo");
@@ -272,6 +291,9 @@ DynamicJsonDocument getRoutinesEndpoint(DynamicJsonDocument *doc)
 }
 DynamicJsonDocument setRoutinesEndpoint(DynamicJsonDocument *doc)
 {
+  Serial.println("========================================");
+  Serial.println("TENTANDO ATUALIZAR ROTINA");
+  Serial.println("========================================");
   DynamicJsonDocument resp(5028);
   resp["status_code"] = 200;
 
@@ -284,7 +306,14 @@ DynamicJsonDocument setRoutinesEndpoint(DynamicJsonDocument *doc)
 // ============================================================================================
 
 DynamicJsonDocument onTryConnectWiFi(DynamicJsonDocument *doc){
-  
+  Serial.println("========================================");
+  Serial.println("TENTANDO CONECTAR");
+  Serial.println("========================================");
+  if (!doc->containsKey("ssid") || !doc->containsKey("password"))
+  {
+    throw std::runtime_error("Parametro fora de escopo");
+  }
+
   const char* ssid = (*doc)["ssid"].as<const char*>();
   const char* password = (*doc)["password"].as<const char*>();
 
@@ -297,6 +326,8 @@ DynamicJsonDocument onTryConnectWiFi(DynamicJsonDocument *doc){
 
   DynamicJsonDocument resp (200);
   resp["ip"] = localNetwork.GetIp().c_str();
+  resp["ip"] = localNetwork.GetIp().c_str();
+  
   return resp;
 }
 
@@ -310,7 +341,7 @@ void startBLE(){
 
   bleWiFiCallback.onWriteCallback = onTryConnectWiFi;
 
-  bleWiFiCharacteristic = pService->createCharacteristic(CHARACTERISTIC_WIFI_UUID, BLECharacteristic::PROPERTY_NOTIFY);
+  bleWiFiCharacteristic = pService->createCharacteristic(CHARACTERISTIC_WIFI_UUID, BLECharacteristic::PROPERTY_WRITE |BLECharacteristic::PROPERTY_NOTIFY);
   bleWiFiCharacteristic->setCallbacks(&bleWiFiCallback);
   bleWiFiCharacteristic->setValue("{}");
 
