@@ -12,38 +12,57 @@ class BluetoothCallback : public BLECharacteristicCallbacks
 {
 private:
     void onWrite(BLECharacteristic* characteristic) {
+        Serial.printf("WRITE");
         if(!onWriteCallback) return;
 
-        const char* value = characteristic->getValue().c_str();
-        if (sizeof(value) > 0) {
-            Serial.printf("Mensagem recebida: %s\r\n", value);
+        try{
+            const char* value = characteristic->getValue().c_str();
+            if (sizeof(value) > 0) {
+                Serial.printf("Mensagem recebida: %s\r\n", value);
+            }
+            DynamicJsonDocument doc = tryDesserialize(value);
+            onWriteCallback(&doc);
         }
-        DynamicJsonDocument doc = tryDesserialize(value);
-        onWriteCallback(&doc);
+        catch (const std::exception& e)
+        {
+            Serial.printf("erro: %s\n", e.what());
+        }
     }
 
     void onRead(BLECharacteristic* characteristic) {
         Serial.printf("READ");
         if(!onReadCallback) return;
-        
-        DynamicJsonDocument doc = onReadCallback(nullptr);
+        try {
+            DynamicJsonDocument oldValue = tryDesserialize(characteristic->getValue().c_str());
 
-        const char*  value = trySerialize(&doc);
+            onReadCallback(&oldValue);
 
-        characteristic->setValue(value);
+            
+            DynamicJsonDocument doc(500);
+            const char*  value = trySerialize(&doc);
 
-        if (sizeof(value) > 0) {
-            Serial.printf("Mensagem enviada: %s\r\n", value);
+            characteristic->setValue(value);
+
+            if (sizeof(value) > 0) {
+                Serial.printf("Mensagem enviada: %s\r\n", value);
+            }
         }
-        delete value;
+        catch (const std::exception& e)
+        {
+            Serial.printf("erro: %s\n", e.what());
+        }
+        //delete value;
     }
     
-    DynamicJsonDocument tryDesserialize(const char*  data){
-        DynamicJsonDocument doc(sizeof(data));
-        DeserializationError error = deserializeJson(doc, data);
+    DynamicJsonDocument tryDesserialize(const char*  data = "{}"){
+        DynamicJsonDocument doc(sizeof(data) + 200);
+        std::string value = data == "" ? "{}" : data;
+
+        DeserializationError error = deserializeJson(doc, value);
         
         if (error) {
-            throw("Falha na desserialização: %s" + String(error.f_str()));
+        //     throw std::runtime_error(("Falha na desserialização: %s" + String(error.f_str())).c_str());
+            throw std::runtime_error("Falha na desserialização");
         }
 
         return doc;

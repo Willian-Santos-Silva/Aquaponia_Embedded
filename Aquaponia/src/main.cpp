@@ -25,6 +25,10 @@ BLECharacteristic *bleRoutinesCharacteristic;
 BLECharacteristic *bleSystemInformationCharacteristic;
 BLECharacteristic *bleWiFiCharacteristic;
 
+BluetoothCallback bleConfigurationCallback;
+BluetoothCallback bleWiFiCallback;
+BluetoothCallback bleSystemInformationCallback;
+
 bool deviceConnected = false;
 
 Clock clockUTC;
@@ -296,9 +300,6 @@ DynamicJsonDocument onTryConnectWiFi(DynamicJsonDocument *doc){
   return resp;
 }
 
-  BluetoothCallback bleConfigurationCallback;
-  BluetoothCallback bleWiFiCallback;
-  BluetoothCallback bleSystemInformationCallback;
 void startBLE(){  
   BLEDevice::init("[AQP] AQUAPONIA");
   pServer = BLEDevice::createServer();
@@ -311,12 +312,12 @@ void startBLE(){
 
   bleWiFiCharacteristic = pService->createCharacteristic(CHARACTERISTIC_WIFI_UUID, BLECharacteristic::PROPERTY_NOTIFY);
   bleWiFiCharacteristic->setCallbacks(&bleWiFiCallback);
-  bleWiFiCharacteristic->setValue("");
+  bleWiFiCharacteristic->setValue("{}");
 
   
   bleSystemInformationCharacteristic = pService->createCharacteristic(CHARACTERISTIC_INFO_UUID, BLECharacteristic::PROPERTY_NOTIFY);
   bleSystemInformationCharacteristic->setCallbacks(&bleSystemInformationCallback);
-  bleSystemInformationCharacteristic->setValue("");
+  bleSystemInformationCharacteristic->setValue("{}");
 
 
   bleConfigurationCallback.onWriteCallback = updateConfigurationEndpoint;
@@ -324,7 +325,7 @@ void startBLE(){
 
   bleConfigurationCharacteristic = pService->createCharacteristic(CHARACTERISTIC_CONFIGURATION_UUID, BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_WRITE);
   bleConfigurationCharacteristic->setCallbacks(&bleConfigurationCallback);
-  bleConfigurationCharacteristic->setValue("");
+  bleConfigurationCharacteristic->setValue("{}");
 
   pService->start();
 
