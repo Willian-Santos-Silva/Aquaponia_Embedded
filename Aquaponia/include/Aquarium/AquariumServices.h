@@ -91,24 +91,28 @@ DynamicJsonDocument AquariumServices::getConfiguration(){
     return doc;
 }
 DynamicJsonDocument AquariumServices::getRoutines(int weekday){
+    Serial.println("Inicio Service");
     DynamicJsonDocument doc(35000);
     JsonObject resp = doc.to<JsonObject>();
     JsonArray dataArray = resp.createNestedArray("data");
 
     vector<routine> data = _aquarium->readRoutine();
-    
     for (const auto &r : data)
     {
-      if(!r.weekday[weekday]){
-        continue;
-      }
+      // if(weekday > -1) {
+      //   if(!r.weekday[weekday]){
+      //     continue;
+      //   }
+      // }
       JsonObject rotina = dataArray.createNestedObject();
-      JsonArray weekdays = rotina.createNestedArray("weekdays");
+      JsonArray weekdays = rotina.createNestedArray("WeekDays");
+      
       for (size_t i = 0; i <  end(r.weekday) - begin(r.weekday); ++i) {
           weekdays.add(r.weekday[i]);
       }
 
       JsonArray horarios = rotina.createNestedArray("horarios");
+      
       for (const auto &h : r.horarios)
       {
         JsonObject horario = horarios.createNestedObject();
@@ -118,10 +122,12 @@ DynamicJsonDocument AquariumServices::getRoutines(int weekday){
     }
 
     data.clear();
-
+    Serial.println("Fim Service");
     return doc;
 }
-void AquariumServices::setRoutines(vector<routine> routines){}
+void AquariumServices::setRoutines(vector<routine> routines){
+  _aquarium->writeRoutine(routines);
+}
 void AquariumServices::updateConfiguration(int min_temperature, int max_temperature, int ph_min, int ph_max, int dosagem, int ppm){
     if (!_aquarium->setHeaterAlarm(min_temperature, max_temperature))
     {

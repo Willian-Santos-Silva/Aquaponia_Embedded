@@ -84,21 +84,17 @@ public:
             return;
         }
 
-        // Escrever um arquivo
         File file = SPIFFS.open("/data.bin", FILE_WRITE);
-        // Escrever o número de rotinas
+        
         uint32_t routinesSize = routines.size();
         file.write((uint8_t *)&routinesSize, sizeof(routinesSize));
 
         for (const auto &r : routines) {
-            // Escrever os dias da semana
             file.write((uint8_t *)r.weekday, sizeof(r.weekday));
 
-            // Escrever o número de horários
             uint32_t horariosSize = r.horarios.size();
             file.write((uint8_t *)&horariosSize, sizeof(horariosSize));
 
-            // Escrever os horários
             for (const auto &h : r.horarios) {
                 file.write((uint8_t *)&h, sizeof(h));
             }
@@ -108,6 +104,7 @@ public:
 
     vector<routine> readRoutine()
     {
+        Serial.println("Iniciando leitura");
         vector<routine> routines;
         File file = SPIFFS.open("/data.bin", FILE_READ);
         if (!file) {
@@ -115,9 +112,11 @@ public:
             return routines;
         }
         
+        Serial.println("Arquivo aberto");
         uint32_t routinesSize;
         file.read((uint8_t *)&routinesSize, sizeof(routinesSize));
         
+        Serial.printf("Rotina tamanho: %i", routinesSize);
         for (uint32_t i = 0; i < routinesSize; ++i) {
             routine r;
 
@@ -125,6 +124,7 @@ public:
 
             uint32_t horariosSize;
             file.read((uint8_t *)&horariosSize, sizeof(horariosSize));
+            Serial.printf("Horarios tamanho: %i", horariosSize);
 
             for (uint32_t j = 0; j < horariosSize; ++j) {
                 horario h;
@@ -134,6 +134,7 @@ public:
 
             routines.push_back(r);
         }
+            Serial.printf("Leitura finalizada");
         file.close();
         return routines;
     }

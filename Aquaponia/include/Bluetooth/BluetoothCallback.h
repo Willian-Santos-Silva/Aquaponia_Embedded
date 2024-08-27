@@ -40,10 +40,9 @@ private:
         try {
             DynamicJsonDocument oldValue = tryDesserialize(characteristic->getValue().c_str());
 
-            onReadCallback(&oldValue);
+            DynamicJsonDocument doc = onReadCallback(&oldValue);
             
-            DynamicJsonDocument doc(500);
-            const char*  value = trySerialize(&doc);
+            const char* value = trySerialize(&doc);
 
             characteristic->setValue(value);
 

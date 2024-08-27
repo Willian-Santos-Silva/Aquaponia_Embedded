@@ -20,15 +20,19 @@
 
 BLEServer *pServer = NULL;
 BLEService *pService;
+BLEService *pServiceRoutinas;
 
 BLECharacteristic *bleConfigurationCharacteristic;
-BLECharacteristic *bleRoutinesCharacteristic;
+BLECharacteristic *bleRoutinesUpdateCharacteristic;
+BLECharacteristic *bleRoutinesGetCharacteristic;
 BLECharacteristic *bleSystemInformationCharacteristic;
 BLECharacteristic *bleWiFiCharacteristic;
 
 BluetoothCallback bleConfigurationCallback;
 BluetoothCallback bleWiFiCallback;
 BluetoothCallback bleSystemInformationCallback;
+BluetoothCallback bleRoutinesUpdateCallback;
+BluetoothCallback bleRoutinesGetCallback;
 
 bool deviceConnected = false;
 
@@ -148,9 +152,9 @@ void TaskWaterPump()
     }
     catch (const std::exception& e)
     {
-    Serial.println("\n********** WATER INFORMATION **********\n");
+      Serial.println("\n********** WATER INFORMATION **********\n");
       Serial.printf("erro: %s\n", e.what());
-    Serial.println("\n**************** END *****************\n");
+      Serial.println("\n**************** END *****************\n");
     }
     vTaskDelay(6000 / portTICK_PERIOD_MS);
   }
@@ -223,7 +227,7 @@ void startTasks(){
   taskTemperatureControl.begin(&TaskAquariumTemperatureControl, "TemperatureAquarium", 1300, 2);
   taskWaterPump.begin(&TaskWaterPump, "WaterPump", 10000, 3);
   taskSendInfo.begin(&TaskSendSystemInformation, "SendInfo", 10000, 4);
-  taskScanWiFiDevices.begin(&TaskScanWiFiDevices, "ScanningWiFi", 10000, 5);
+  // taskScanWiFiDevices.begin(&TaskScanWiFiDevices, "ScanningWiFi", 10000, 5);
 }
 
 
@@ -280,14 +284,27 @@ DynamicJsonDocument getRoutinesEndpoint(DynamicJsonDocument *doc)
 {
   Serial.println("========================================");
   Serial.println("TENTANDO PEGAR ROTINAS");
-  Serial.println("========================================");
   if (!doc->containsKey("weekday"))
   {
     throw std::runtime_error("Parametro fora de escopo");
   }
 
   int weekday = (*doc)["weekday"].as<int>();
-  return  aquariumServices.getRoutines(weekday);
+
+  try {
+
+    DynamicJsonDocument resp = aquariumServices.getRoutines(weekday);
+
+    return  resp;
+  }
+  catch(const std::exception& e)
+  {
+    Serial.printf("erro: %s\n", e.what());
+    Serial.println("\n**************** END *****************\n");
+    DynamicJsonDocument resp(300);
+    return resp;
+  }
+
 }
 DynamicJsonDocument setRoutinesEndpoint(DynamicJsonDocument *doc)
 {
@@ -297,6 +314,27 @@ DynamicJsonDocument setRoutinesEndpoint(DynamicJsonDocument *doc)
   DynamicJsonDocument resp(5028);
   resp["status_code"] = 200;
 
+  std::vector<routine> routines;
+
+  for (JsonObject jsonRoutine : doc->as<JsonArray>()) {
+      routine r;
+
+      JsonArray jsonWeekday = jsonRoutine["weekday"].as<JsonArray>();
+      for (int i = 0; i < 7; i++) {
+          r.weekday[i] = jsonWeekday[i];
+      }
+
+      for (JsonObject jsonHorario : jsonRoutine["horarios"].as<JsonArray>()) {
+          horario h;
+          h.start = jsonHorario["start"];
+          h.end = jsonHorario["end"];
+          r.horarios.push_back(h);
+      }
+
+      routines.push_back(r);
+  }
+  aquariumServices.setRoutines(routines);
+  // bleRoutinesGetCharacteristic->notify();
   return resp;
 }
 
@@ -335,7 +373,6 @@ void startBLE(){
   BLEDevice::init("[AQP] AQUAPONIA");
   pServer = BLEDevice::createServer();
   pServer->setCallbacks(new MyServerCallbacks());
-
   pService = pServer->createService(SERVICE_UUID);
 
 
@@ -358,10 +395,30 @@ void startBLE(){
   bleConfigurationCharacteristic->setCallbacks(&bleConfigurationCallback);
   bleConfigurationCharacteristic->setValue("{}");
 
+
+  pServiceRoutinas = pServer->createService(SERVICE_ROUTINES_UUID);
+
+  // bleRoutinesUpdateCallback.onWriteCallback = setRoutinesEndpoint;
+  // bleRoutinesUpdateCharacteristic = pServiceRoutinas->createCharacteristic(CHARACTERISTIC_UPDATE_ROUTINES_UUID, BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_WRITE);
+  // bleRoutinesUpdateCharacteristic->setCallbacks(&bleRoutinesUpdateCallback);
+  // bleRoutinesUpdateCharacteristic->setValue("{}");
+
+
+  
+  bleRoutinesGetCallback.onWriteCallback = getRoutinesEndpoint;
+
+  bleRoutinesGetCharacteristic = pServiceRoutinas->createCharacteristic(CHARACTERISTIC_GET_ROUTINES_UUID, BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_WRITE | BLECharacteristic::PROPERTY_NOTIFY);
+  bleRoutinesGetCharacteristic->setCallbacks(&bleRoutinesGetCallback);
+  bleRoutinesGetCharacteristic->setValue("{}");
+
+
+
   pService->start();
+  pServiceRoutinas->start();
 
   BLEAdvertising *pAdvertising = BLEDevice::getAdvertising();
   pAdvertising->addServiceUUID(SERVICE_UUID);
+  pAdvertising->addServiceUUID(SERVICE_ROUTINES_UUID);
   pServer->getAdvertising()->start();
 }
 
