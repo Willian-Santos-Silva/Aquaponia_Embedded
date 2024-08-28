@@ -1,8 +1,5 @@
 #include "Clock/Date.h"
 
-#include "WiFi/LocalNetwork.h"
-#include "WiFiServer/LocalServer.h"
-#include "WiFiServer/Socket.h"
 
 #include "Aquarium/Aquarium.h"
 #include "Clock/Clock.h"
@@ -16,7 +13,6 @@
 #include <BLEServer.h>
 #include <BLEUtils.h>
 #include <BLE2902.h>
-#include "esp_gattc_api.h"
 
 BLEServer *pServer = NULL;
 BLEService *pService;
@@ -38,10 +34,6 @@ bool deviceConnected = false;
 
 Clock clockUTC;
 Memory memory;
-
-LocalNetwork localNetwork;
-LocalServer localServer;
-Socket connectionSocket;
 
 Aquarium aquarium;
 AquariumServices aquariumServices(&aquarium);
@@ -78,7 +70,7 @@ void TaskSendSystemInformation()
         
         bleSystemInformationCharacteristic->setValue(resultString);
         bleSystemInformationCharacteristic->notify();
-        // connectionSocket.sendWsData("SystemInformation", &doc);
+        
         Serial.printf("data: %s\n", resultString.c_str());
         
         doc.clear();
@@ -177,57 +169,13 @@ void TaskPeristaultic()
     vTaskDelay(500 / portTICK_PERIOD_MS);
   }
 }
-void TaskScanWiFiDevices(){
-  while (true)
-  {
-    if(localNetwork.isConnect()) {
-      DynamicJsonDocument resp(512);
-      std::string resultString;
-      resp["ip"] = localNetwork.GetIp().c_str();
-      serializeJson(resp, resultString);
-
-      bleWiFiCharacteristic->setValue(resultString);
-      bleWiFiCharacteristic->notify();
-
-      vTaskDelay(5000 / portTICK_PERIOD_MS);
-      return;
-    }
-
-    vector<Hotposts> lHotposts = localNetwork.sanningHotpost();
-    DynamicJsonDocument doc(5028);
-    JsonArray resp = doc.createNestedArray("data");
-    for (const auto &h : lHotposts)
-    {
-      JsonObject hotpost = resp.createNestedObject();
-
-      hotpost["ssid"] = h.ssid;
-      hotpost["rssi"] = h.rssi;
-      hotpost["channel"] = h.channel;
-      hotpost["encryptionType"] = h.encryptionType;
-      
-    }
-    lHotposts.clear();
-    
-    std::string resultString;
-    serializeJson(resp, resultString);
-    
-    bleWiFiCharacteristic->setValue(resultString);
-    bleWiFiCharacteristic->notify();
-    // // connectionSocket.sendWsData("WiFiDevices", &doc);
-
-    doc.clear();
-    resp.clear();
-    vTaskDelay(5000 / portTICK_PERIOD_MS);
-  }
-}
 
 void startTasks(){
   isExecutingOneWire = xSemaphoreCreateBinary();
   taskOneWire.begin(&TaskOneWireControl, "OneWire", 1000, 1);
   taskTemperatureControl.begin(&TaskAquariumTemperatureControl, "TemperatureAquarium", 1300, 2);
-  taskWaterPump.begin(&TaskWaterPump, "WaterPump", 10000, 3);
-  taskSendInfo.begin(&TaskSendSystemInformation, "SendInfo", 10000, 4);
-  // taskScanWiFiDevices.begin(&TaskScanWiFiDevices, "ScanningWiFi", 10000, 5);
+  taskWaterPump.begin(&TaskWaterPump, "WaterPump", 2000, 3);
+  taskSendInfo.begin(&TaskSendSystemInformation, "SendInfo", 5000, 4);
 }
 
 
@@ -271,12 +219,17 @@ DynamicJsonDocument updateConfigurationEndpoint(DynamicJsonDocument *doc)
 DynamicJsonDocument getConfigurationEndpoint(DynamicJsonDocument *doc)
 {
   Serial.println("========================================");
-  Serial.println("TENTANDO ATUALIZAR ROTINA");
-  Serial.println("========================================");
+  Serial.println("TENTANDO ATUALIZAR Configuracao");
   DynamicJsonDocument response(5028);
 
   response["data"] = aquariumServices.getConfiguration();
   response["status_code"] = 200;
+  
+  std::string data;
+  serializeJson(response, data);
+  
+  Serial.printf("%s",data.c_str());
+  Serial.println("========================================");
 
   return response;
 }
@@ -284,22 +237,25 @@ DynamicJsonDocument getRoutinesEndpoint(DynamicJsonDocument *doc)
 {
   Serial.println("========================================");
   Serial.println("TENTANDO PEGAR ROTINAS");
-  if (!doc->containsKey("weekday"))
-  {
-    throw std::runtime_error("Parametro fora de escopo");
-  }
+  // if (!doc->containsKey("weekday"))
+  // {
+  //   throw std::runtime_error("Parametro fora de escopo");
+  // }
 
-  int weekday = (*doc)["weekday"].as<int>();
+  // int weekday = (*doc)["weekday"].as<int>();
 
   try {
+    DynamicJsonDocument resp = aquariumServices.getRoutines(-1);
 
-    DynamicJsonDocument resp = aquariumServices.getRoutines(weekday);
-
-    return  resp;
+    std::string data;
+    serializeJson(resp, data);
+    
+    Serial.printf("Servico: %s",data.c_str());
+    return resp;
   }
   catch(const std::exception& e)
   {
-    Serial.printf("erro: %s\n", e.what());
+    Serial.printf("[callback] erro: %s\n", e.what());
     Serial.println("\n**************** END *****************\n");
     DynamicJsonDocument resp(300);
     return resp;
@@ -343,45 +299,11 @@ DynamicJsonDocument setRoutinesEndpoint(DynamicJsonDocument *doc)
 //                                      START SERVICES
 // ============================================================================================
 
-DynamicJsonDocument onTryConnectWiFi(DynamicJsonDocument *doc){
-  Serial.println("========================================");
-  Serial.println("TENTANDO CONECTAR");
-  Serial.println("========================================");
-  if (!doc->containsKey("ssid") || !doc->containsKey("password"))
-  {
-    throw std::runtime_error("Parametro fora de escopo");
-  }
-
-  const char* ssid = (*doc)["ssid"].as<const char*>();
-  const char* password = (*doc)["password"].as<const char*>();
-
-  Serial.printf("\r\n\nSSID: %s\r\nSenha: %s\r\n\n", ssid, password);
-
-  localNetwork.StartSTA(ssid, password);
-
-  localServer.init();
-  localServer.startSocket(&connectionSocket.socket);
-
-  DynamicJsonDocument resp (200);
-  resp["ip"] = localNetwork.GetIp().c_str();
-  resp["ip"] = localNetwork.GetIp().c_str();
-  
-  return resp;
-}
-
 void startBLE(){  
   BLEDevice::init("[AQP] AQUAPONIA");
   pServer = BLEDevice::createServer();
   pServer->setCallbacks(new MyServerCallbacks());
   pService = pServer->createService(SERVICE_UUID);
-
-
-  bleWiFiCallback.onWriteCallback = onTryConnectWiFi;
-
-  bleWiFiCharacteristic = pService->createCharacteristic(CHARACTERISTIC_WIFI_UUID, BLECharacteristic::PROPERTY_WRITE |BLECharacteristic::PROPERTY_NOTIFY);
-  bleWiFiCharacteristic->setCallbacks(&bleWiFiCallback);
-  bleWiFiCharacteristic->setValue("{}");
-
   
   bleSystemInformationCharacteristic = pService->createCharacteristic(CHARACTERISTIC_INFO_UUID, BLECharacteristic::PROPERTY_NOTIFY);
   bleSystemInformationCharacteristic->setCallbacks(&bleSystemInformationCallback);
@@ -405,7 +327,8 @@ void startBLE(){
 
 
   
-  bleRoutinesGetCallback.onWriteCallback = getRoutinesEndpoint;
+  // bleRoutinesGetCallback.onWriteCallback = getRoutinesEndpoint;
+  bleRoutinesGetCallback.onReadCallback = getRoutinesEndpoint;
 
   bleRoutinesGetCharacteristic = pServiceRoutinas->createCharacteristic(CHARACTERISTIC_GET_ROUTINES_UUID, BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_WRITE | BLECharacteristic::PROPERTY_NOTIFY);
   bleRoutinesGetCharacteristic->setCallbacks(&bleRoutinesGetCallback);
@@ -430,11 +353,6 @@ void setup()
   
   startTasks();
   startBLE();
-  // //startServer();                   true);
-  localServer.addEndpoint("/configuration/update", &updateConfigurationEndpoint);
-  localServer.addEndpoint("/configuration/get", &getConfigurationEndpoint);
-  localServer.addEndpoint("/routine/get", &getRoutinesEndpoint);
-  localServer.addEndpoint("/routine/update", &setRoutinesEndpoint);
 
 
   memory.write<bool>(ADDRESS_START, true);

@@ -12,7 +12,7 @@ class BluetoothCallback : public BLECharacteristicCallbacks
 {
 private:
     void onWrite(BLECharacteristic* characteristic) {
-        Serial.printf("WRITE");
+        Serial.printf("WRITE:\n");
         if(!onWriteCallback) return;
 
         try{
@@ -22,38 +22,45 @@ private:
             }
             DynamicJsonDocument doc = tryDesserialize(value);
 
-
             DynamicJsonDocument response = onWriteCallback(&doc);
+            doc.clear();
+            
+            Serial.printf("Mensagem definida: %s\r\n", value);
             const char* repsValue = trySerialize(&response);
             characteristic->setValue(repsValue);
         }
         catch (const std::exception& e)
         {
-            characteristic->setValue(e.what());
-            Serial.printf("erro: %s\n", e.what());
+            characteristic->setValue("{}");
+            Serial.printf("[write] erro: %s\n", e.what());
         }
     }
 
     void onRead(BLECharacteristic* characteristic) {
-        Serial.printf("READ");
-        if(!onReadCallback) return;
+        Serial.printf("READ:\n");
+        Serial.printf("Valor velho: %s\n",characteristic->getValue().c_str());
+        if(!onReadCallback){
+            return;
+        }
+
         try {
             DynamicJsonDocument oldValue = tryDesserialize(characteristic->getValue().c_str());
 
-            DynamicJsonDocument doc = onReadCallback(&oldValue);
-            
-            const char* value = trySerialize(&doc);
+            DynamicJsonDocument respDoc = onReadCallback(&oldValue);
+            oldValue.clear();
 
-            characteristic->setValue(value);
+            const char* value = trySerialize(&respDoc);
 
             if (sizeof(value) > 0) {
+                characteristic->setValue(value);
                 Serial.printf("Mensagem enviada: %s\r\n", value);
             }
         }
         catch (const std::exception& e)
         {
-            characteristic->setValue(e.what());
-            Serial.printf("erro: %s\n", e.what());
+            characteristic->setValue("{}");
+            // characteristic->setValue(e.what());
+            Serial.printf("[read] erro: %s\n", e.what());
         }
         //delete value;
     }
@@ -77,7 +84,7 @@ private:
     
     DynamicJsonDocument tryDesserialize(const char*  data = "{}"){
         DynamicJsonDocument doc(sizeof(data) + 200);
-        std::string value = data == "" ? "{}" : data;   
+        std::string value = data == ""  ? "{}" : data;   
 
         DeserializationError error = deserializeJson(doc, value);
         

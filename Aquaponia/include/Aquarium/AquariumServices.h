@@ -9,8 +9,6 @@
 #include "Clock/Clock.h"
 #include "Clock/Date.h"
 #include "Base/memory.h"
-#include "WiFi/LocalNetwork.h"
-
 using namespace std;
 
 class AquariumServices
@@ -19,7 +17,6 @@ private:
     Aquarium* _aquarium;
     Clock clockUTC;
     Memory memory;
-    LocalNetwork localNetwork;
 
 public:
     AquariumServices(Aquarium *aquarium);
@@ -91,38 +88,28 @@ DynamicJsonDocument AquariumServices::getConfiguration(){
     return doc;
 }
 DynamicJsonDocument AquariumServices::getRoutines(int weekday){
-    Serial.println("Inicio Service");
     DynamicJsonDocument doc(35000);
-    JsonObject resp = doc.to<JsonObject>();
-    JsonArray dataArray = resp.createNestedArray("data");
+    JsonArray dataArray = doc.to<JsonArray>();
 
-    vector<routine> data = _aquarium->readRoutine();
-    for (const auto &r : data)
-    {
-      // if(weekday > -1) {
-      //   if(!r.weekday[weekday]){
-      //     continue;
-      //   }
-      // }
-      JsonObject rotina = dataArray.createNestedObject();
-      JsonArray weekdays = rotina.createNestedArray("WeekDays");
-      
-      for (size_t i = 0; i <  end(r.weekday) - begin(r.weekday); ++i) {
-          weekdays.add(r.weekday[i]);
-      }
+    vector<routine> data = _aquarium->readRoutine();    
+    for (const auto& r : data) {
+        JsonObject rotina = dataArray.createNestedObject();
+        
+        JsonArray weekdays = rotina.createNestedArray("WeekDays");
+        for (size_t i = 0; i < sizeof(r.weekday) / sizeof(r.weekday[0]); ++i) {
+            weekdays.add(r.weekday[i]);
+        }
 
-      JsonArray horarios = rotina.createNestedArray("horarios");
-      
-      for (const auto &h : r.horarios)
-      {
-        JsonObject horario = horarios.createNestedObject();
-        horario["start"] = h.start;
-        horario["end"] = h.end;
-      }
+        JsonArray horarios = rotina.createNestedArray("horarios");
+        for (const auto& h : r.horarios) {
+            JsonObject horario = horarios.createNestedObject();
+            horario["start"] = h.start;
+            horario["end"] = h.end;
+        }
     }
 
     data.clear();
-    Serial.println("Fim Service");
+  
     return doc;
 }
 void AquariumServices::setRoutines(vector<routine> routines){
