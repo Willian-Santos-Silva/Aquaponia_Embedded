@@ -60,8 +60,8 @@ public:
             routines.weekday[5] = w == 5;
             routines.weekday[6] = w == 6;
 
-            const int TEMPO_OXIGENACAO_DEFAULT = 1;
-            const int TEMPO_IRRIGACAO_DEFAULT = 1;
+            const int TEMPO_OXIGENACAO_DEFAULT = 15;
+            const int TEMPO_IRRIGACAO_DEFAULT = 15;
             for(int i = 0; i < 1440; i += TEMPO_IRRIGACAO_DEFAULT + TEMPO_OXIGENACAO_DEFAULT){
                 horario horario;
                 horario.start = i;
@@ -80,8 +80,7 @@ public:
     void writeRoutine(const vector<routine> &routines)
     {
         if (!SPIFFS.begin(true)) {
-            Serial.println("Falha ao montar o sistema de arquivos SPIFFS");
-            return;
+            throw std::runtime_error("Falha ao montar o sistema de arquivos SPIFFS");
         }
 
         File file = SPIFFS.open("/data.bin", FILE_WRITE);
@@ -104,19 +103,15 @@ public:
 
     vector<routine> readRoutine()
     {
-        Serial.println("Iniciando leitura");
         vector<routine> routines;
         File file = SPIFFS.open("/data.bin", FILE_READ);
         if (!file) {
-            Serial.println("Erro ao abrir o arquivo para leitura");
-            return routines;
+            throw std::runtime_error("Erro ao abrir o arquivo para leitura");
         }
         
-        Serial.println("Arquivo aberto");
         uint32_t routinesSize;
         file.read((uint8_t *)&routinesSize, sizeof(routinesSize));
         
-        Serial.printf("Rotina tamanho: %i", routinesSize);
         for (uint32_t i = 0; i < routinesSize; ++i) {
             routine r;
 
@@ -124,7 +119,6 @@ public:
 
             uint32_t horariosSize;
             file.read((uint8_t *)&horariosSize, sizeof(horariosSize));
-            Serial.printf("Horarios tamanho: %i", horariosSize);
 
             for (uint32_t j = 0; j < horariosSize; ++j) {
                 horario h;
@@ -134,7 +128,7 @@ public:
 
             routines.push_back(r);
         }
-            Serial.printf("Leitura finalizada");
+        
         file.close();
         return routines;
     }

@@ -52,6 +52,7 @@ TaskWrapper taskWaterPump;
 TaskWrapper taskOneWire;
 TaskWrapper taskScanWiFiDevices;
 SemaphoreHandle_t isExecutingOneWire;
+SemaphoreHandle_t isNotify;
 
 
 void TaskSendSystemInformation()
@@ -60,18 +61,15 @@ void TaskSendSystemInformation()
   {
     if(xSemaphoreTake(isExecutingOneWire, portMAX_DELAY))
     {
-      Serial.println("\n********** SEND INFORMATION **********\n");
       try
       {
+        Serial.println("[LOG] ENVIO INFORMACAO SISTEMA");
         DynamicJsonDocument doc = aquariumServices.getSystemInformation();
 
         std::string resultString;
         serializeJson(doc, resultString);
         
-        bleSystemInformationCharacteristic->setValue(resultString);
-        bleSystemInformationCharacteristic->notify();
-        
-        Serial.printf("data: %s\n", resultString.c_str());
+        bleSystemInformationCallback.notify(bleSystemInformationCharacteristic, resultString.c_str());
         
         doc.clear();
       }
@@ -79,7 +77,6 @@ void TaskSendSystemInformation()
       {
           Serial.printf("erro: %s\n", e.what());
       }
-      Serial.println("\n**************** END *****************\n");
 
       vTaskDelay(1000 / portTICK_PERIOD_MS);
     }
@@ -92,13 +89,12 @@ void TaskOneWireControl()
     xSemaphoreGive(isExecutingOneWire);
     try
     {
+      Serial.println("[LOG] LEITURA TERMOPAR");
       aquarium.updateTemperature();
     }
     catch (const std::exception& e)
     {
-    Serial.println("\n********** ONE WIRE INFORMATION **********\n");
         Serial.printf("erro: %s\n", e.what());
-    Serial.println("\n**************** END *****************\n");
     }
 
     vTaskDelay(1000 / portTICK_PERIOD_MS);
@@ -198,9 +194,8 @@ class MyServerCallbacks: public BLEServerCallbacks {
 
 DynamicJsonDocument updateConfigurationEndpoint(DynamicJsonDocument *doc)
 {
-  Serial.println("========================================");
-  Serial.println("TENTANDO ATUALIZAR CONFIGURACOES");
-  Serial.println("========================================");
+  Serial.println("[LOG] ATUALIZAR CONFIGURACAO");
+
   if (!doc->containsKey("min_temperature") || !doc->containsKey("max_temperature") || 
       !doc->containsKey("ph_min") || !doc->containsKey("ph_max") || 
       !doc->containsKey("dosagem") || !doc->containsKey("ppm"))
@@ -218,8 +213,6 @@ DynamicJsonDocument updateConfigurationEndpoint(DynamicJsonDocument *doc)
 }
 DynamicJsonDocument getConfigurationEndpoint(DynamicJsonDocument *doc)
 {
-  Serial.println("========================================");
-  Serial.println("TENTANDO ATUALIZAR Configuracao");
   DynamicJsonDocument response(5028);
 
   response["data"] = aquariumServices.getConfiguration();
@@ -229,14 +222,13 @@ DynamicJsonDocument getConfigurationEndpoint(DynamicJsonDocument *doc)
   serializeJson(response, data);
   
   Serial.printf("%s",data.c_str());
-  Serial.println("========================================");
+  
+  Serial.println("[LOG] GET CONFIGURACAO");
 
   return response;
 }
 DynamicJsonDocument getRoutinesEndpoint(DynamicJsonDocument *doc)
 {
-  Serial.println("========================================");
-  Serial.println("TENTANDO PEGAR ROTINAS");
   // if (!doc->containsKey("weekday"))
   // {
   //   throw std::runtime_error("Parametro fora de escopo");
@@ -245,18 +237,12 @@ DynamicJsonDocument getRoutinesEndpoint(DynamicJsonDocument *doc)
   // int weekday = (*doc)["weekday"].as<int>();
 
   try {
-    DynamicJsonDocument resp = aquariumServices.getRoutines(-1);
-
-    std::string data;
-    serializeJson(resp, data);
-    
-    Serial.printf("Servico: %s",data.c_str());
-    return resp;
+    Serial.println("[LOG] GET ROTINAS");
+    return aquariumServices.getRoutines(-1);
   }
   catch(const std::exception& e)
   {
     Serial.printf("[callback] erro: %s\n", e.what());
-    Serial.println("\n**************** END *****************\n");
     DynamicJsonDocument resp(300);
     return resp;
   }
@@ -264,9 +250,7 @@ DynamicJsonDocument getRoutinesEndpoint(DynamicJsonDocument *doc)
 }
 DynamicJsonDocument setRoutinesEndpoint(DynamicJsonDocument *doc)
 {
-  Serial.println("========================================");
-  Serial.println("TENTANDO ATUALIZAR ROTINA");
-  Serial.println("========================================");
+  Serial.println("[LOG] ATUALIZAR ROTINAS");
   DynamicJsonDocument resp(5028);
   resp["status_code"] = 200;
 
@@ -301,6 +285,7 @@ DynamicJsonDocument setRoutinesEndpoint(DynamicJsonDocument *doc)
 
 void startBLE(){  
   BLEDevice::init("[AQP] AQUAPONIA");
+  BLEDevice::setMTU(517);
   pServer = BLEDevice::createServer();
   pServer->setCallbacks(new MyServerCallbacks());
   pService = pServer->createService(SERVICE_UUID);
@@ -327,7 +312,7 @@ void startBLE(){
 
 
   
-  // bleRoutinesGetCallback.onWriteCallback = getRoutinesEndpoint;
+  bleRoutinesGetCallback.onWriteCallback = setRoutinesEndpoint;
   bleRoutinesGetCallback.onReadCallback = getRoutinesEndpoint;
 
   bleRoutinesGetCharacteristic = pServiceRoutinas->createCharacteristic(CHARACTERISTIC_GET_ROUTINES_UUID, BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_WRITE | BLECharacteristic::PROPERTY_NOTIFY);

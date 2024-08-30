@@ -2,6 +2,7 @@
 #define BLUETOOTH_CALLBACK
 
 #include <AsyncJson.h>
+#include "config.h"
 
 #include <BLEDevice.h>
 #include <BLEServer.h>
@@ -11,23 +12,46 @@
 class BluetoothCallback : public BLECharacteristicCallbacks 
 {
 private:
+    std::string request = "";
+    std::string responseData = "";
+    size_t expectedLength = 0;
+    bool isReceivingMessage = false;
+
+
     void onWrite(BLECharacteristic* characteristic) {
         Serial.printf("WRITE:\n");
+
+        
+        std::string value = characteristic->getValue();
+
+        if(static_cast<unsigned char>(value.back()) != 0xFF){
+            if(!isReceivingMessage){
+                isReceivingMessage = true;
+                
+                characteristic->notify(false);                
+                request.clear();
+            }
+
+            Serial.printf("%s", value.c_str());
+            request += value;
+            Serial.printf("\n\n%s\n", request.c_str());
+            return;
+        }
+        characteristic->notify(true);
+        isReceivingMessage = false;
+        Serial.println("end");
+        
         if(!onWriteCallback) return;
 
-        try{
-            const char* value = characteristic->getValue().c_str();
-            if (sizeof(value) > 0) {
-                Serial.printf("Mensagem recebida: %s\r\n", value);
-            }
-            DynamicJsonDocument doc = tryDesserialize(value);
+        try {
+            DynamicJsonDocument docRequest = tryDesserialize(request.empty() ? request.c_str() : "{}");
+            Serial.printf("Mensagem recebida: %s\r\n", request.c_str());
 
-            DynamicJsonDocument response = onWriteCallback(&doc);
-            doc.clear();
+            DynamicJsonDocument response = onWriteCallback(&docRequest);
+            docRequest.clear();
             
-            Serial.printf("Mensagem definida: %s\r\n", value);
-            const char* repsValue = trySerialize(&response);
-            characteristic->setValue(repsValue);
+            responseData = trySerialize(&response);
+            // sendBLE(characteristic, responseData.c_str());
         }
         catch (const std::exception& e)
         {
@@ -38,55 +62,71 @@ private:
 
     void onRead(BLECharacteristic* characteristic) {
         Serial.printf("READ:\n");
-        Serial.printf("Valor velho: %s\n",characteristic->getValue().c_str());
-        if(!onReadCallback){
+
+        if(!onReadCallback || isReceivingMessage){
             return;
         }
 
         try {
-            DynamicJsonDocument oldValue = tryDesserialize(characteristic->getValue().c_str());
-
+            DynamicJsonDocument oldValue = tryDesserialize("{}");
             DynamicJsonDocument respDoc = onReadCallback(&oldValue);
             oldValue.clear();
 
             const char* value = trySerialize(&respDoc);
-
-            if (sizeof(value) > 0) {
-                characteristic->setValue(value);
-                Serial.printf("Mensagem enviada: %s\r\n", value);
-            }
+            sendBLE(characteristic, value);
         }
         catch (const std::exception& e)
         {
             characteristic->setValue("{}");
-            // characteristic->setValue(e.what());
             Serial.printf("[read] erro: %s\n", e.what());
         }
         //delete value;
     }
     void onNotify(BLECharacteristic* characteristic) {
-        Serial.printf("NOTIFY");
+        // Serial.printf("NOTIFY\n");
         std::string value = characteristic->getValue();
         if (value.length() > 0) {    
-            Serial.printf("Mensagem notificada: %s\r\n", value.c_str());
+            Serial.printf("data: %s\r\n", value.c_str());
         }
-
-        // try{
-        //     DynamicJsonDocument doc = tryDesserialize(value);
-        //     onWriteCallback(&doc);
-        // }
-        // catch (const std::exception& e)
-        // {
-        //     Serial.printf("erro: %s\n", e.what());
-        // }
     }
 
-    
-    DynamicJsonDocument tryDesserialize(const char*  data = "{}"){
-        DynamicJsonDocument doc(sizeof(data) + 200);
-        std::string value = data == ""  ? "{}" : data;   
+    void sendBLE(BLECharacteristic* characteristic, const char* value){
+        size_t dataLength = strlen(value);
+        std::string valueStr(value);
 
-        DeserializationError error = deserializeJson(doc, value);
+        if (dataLength > 0) {
+            size_t offset = 0;
+
+            while (offset < dataLength) {
+                size_t chunkSize = std::min(MAX_SIZE, dataLength - offset);
+
+                // char* chunk = new char[chunkSize + 1];
+                // for (int i = 0; i < chunkSize; i++) {
+                //     chunk[i] = value[offset + i];
+                // }
+                // chunk[chunkSize] = '\0';
+                // delete[] chunk;
+                std::string chunk = valueStr.substr(offset, chunkSize);
+                characteristic->setValue(chunk.c_str());
+                
+                characteristic->notify();
+
+
+                offset += chunkSize;
+                delay(100);
+            }
+
+            // Finaliza a transmissão com um valor específico
+            uint8_t endSignal = 0xFF; // Define um sinal de finalização
+            characteristic->setValue(&endSignal, sizeof(endSignal));
+            characteristic->notify();
+        }
+    }
+ 
+    DynamicJsonDocument tryDesserialize(const char*  data){
+        DynamicJsonDocument doc(sizeof(data) + 200);
+
+        DeserializationError error = deserializeJson(doc, data);
         
         if (error) {
         //     throw std::runtime_error(("Falha na desserialização: %s" + String(error.f_str())).c_str());
@@ -108,8 +148,7 @@ public:
     std::function<DynamicJsonDocument(DynamicJsonDocument*)> onReadCallback; 
     std::function<DynamicJsonDocument(DynamicJsonDocument*)> onWriteCallback;
 
-    void notify(DynamicJsonDocument *doc);
-    void setValue(DynamicJsonDocument *doc);
+    void notify(BLECharacteristic* characteristic, const char* value);
 };
 
 BluetoothCallback::BluetoothCallback() 
@@ -120,18 +159,8 @@ BluetoothCallback::~BluetoothCallback()
 {
 }
 
-void BluetoothCallback::notify(DynamicJsonDocument *doc)
+void BluetoothCallback::notify(BLECharacteristic* characteristic, const char* value)
 {
-    // pCharacteristic->setValue(trySerialize(doc));
-    // pCharacteristic->notify();
+    sendBLE(characteristic, value);
 }
-void BluetoothCallback::setValue(DynamicJsonDocument *doc)
-{
-    // pCharacteristic->setValue(trySerialize(doc));
-}
-
-
-
-
-
 #endif

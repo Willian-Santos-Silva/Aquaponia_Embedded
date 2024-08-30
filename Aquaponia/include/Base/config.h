@@ -1,6 +1,6 @@
 #ifndef CONFIGURATION_H
 #define CONFIGURATION_H
-
+#include <algorithm>
 // CONTANTES
 #define WIFI_SSID                               "Aquapony"
 #define WIFI_PASSWORD                           "12345678"
@@ -12,7 +12,8 @@
 #define SERVER_PORT                             80
 #define SOCKET_URL                              "/ws"
 #define EVENTS_URL                              "/events"
-
+#define MAX_SIZE                                static_cast<size_t>(600)
+#define MAX_BUFFER_SIZE  35000
 #define MIN_AQUARIUM_TEMP                       23
 #define MAX_AQUARIUM_TEMP                       28
 #define MIN_AQUARIUM_PH                         6
