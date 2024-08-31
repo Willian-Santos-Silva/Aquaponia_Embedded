@@ -3,6 +3,9 @@
 
 #include <AsyncJson.h>
 #include "config.h"
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
+#include "base64.h"
 
 #include <BLEDevice.h>
 #include <BLEServer.h>
@@ -28,7 +31,7 @@ private:
             if(!isReceivingMessage){
                 isReceivingMessage = true;
                 
-                characteristic->notify(false);                
+                characteristic->notify(false);
                 request.clear();
             }
 
@@ -72,55 +75,53 @@ private:
             DynamicJsonDocument respDoc = onReadCallback(&oldValue);
             oldValue.clear();
 
-            const char* value = trySerialize(&respDoc);
-            sendBLE(characteristic, value);
+            sendBLE(characteristic, trySerialize(&respDoc));
         }
         catch (const std::exception& e)
         {
             characteristic->setValue("{}");
             Serial.printf("[read] erro: %s\n", e.what());
         }
-        //delete value;
     }
     void onNotify(BLECharacteristic* characteristic) {
-        // Serial.printf("NOTIFY\n");
-        std::string value = characteristic->getValue();
-        if (value.length() > 0) {    
-            Serial.printf("data: %s\r\n", value.c_str());
+        Serial.printf("NOTIFY\n");
+        
+        if(isReceivingMessage){
+            return;
         }
+        // Serial.printf("data: %s\r\n", characteristic->getValue().c_str());
     }
 
     void sendBLE(BLECharacteristic* characteristic, const char* value){
         size_t dataLength = strlen(value);
         std::string valueStr(value);
+        
+        if (dataLength <= 0) { return; }
 
-        if (dataLength > 0) {
-            size_t offset = 0;
+        size_t offset = 0;
 
-            while (offset < dataLength) {
-                size_t chunkSize = std::min(MAX_SIZE, dataLength - offset);
-
-                // char* chunk = new char[chunkSize + 1];
-                // for (int i = 0; i < chunkSize; i++) {
-                //     chunk[i] = value[offset + i];
-                // }
-                // chunk[chunkSize] = '\0';
-                // delete[] chunk;
-                std::string chunk = valueStr.substr(offset, chunkSize);
-                characteristic->setValue(chunk.c_str());
-                
-                characteristic->notify();
-
-
-                offset += chunkSize;
-                delay(100);
-            }
-
-            // Finaliza a transmissão com um valor específico
-            uint8_t endSignal = 0xFF; // Define um sinal de finalização
-            characteristic->setValue(&endSignal, sizeof(endSignal));
+        while (offset < dataLength) {
+            std::string chunk;
+            size_t chunkSize;
+            do {
+                chunk.clear();
+                chunkSize = std::min(MAX_SIZE-1, dataLength - offset);
+                chunk = valueStr.substr(offset, chunkSize);
+            }while(chunk.length() != chunkSize);
+            
+            Serial.printf("set: %s\r\n", chunk.c_str());
+            characteristic->setValue(chunk.c_str());
+            
+            chunk.clear();
             characteristic->notify();
+
+            offset += chunkSize;
         }
+        valueStr.clear();
+        
+        uint8_t endSignal = 0xFF;
+        characteristic->setValue(&endSignal, sizeof(endSignal));
+        characteristic->notify();
     }
  
     DynamicJsonDocument tryDesserialize(const char*  data){

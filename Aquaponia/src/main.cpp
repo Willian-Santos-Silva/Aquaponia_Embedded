@@ -59,27 +59,28 @@ void TaskSendSystemInformation()
 {
   while (true)
   {
-    if(xSemaphoreTake(isExecutingOneWire, portMAX_DELAY))
+    if(!xSemaphoreTake(isExecutingOneWire, portMAX_DELAY))
     {
-      try
-      {
-        Serial.println("[LOG] ENVIO INFORMACAO SISTEMA");
-        DynamicJsonDocument doc = aquariumServices.getSystemInformation();
-
-        std::string resultString;
-        serializeJson(doc, resultString);
-        
-        bleSystemInformationCallback.notify(bleSystemInformationCharacteristic, resultString.c_str());
-        
-        doc.clear();
-      }
-      catch (const std::exception& e)
-      {
-          Serial.printf("erro: %s\n", e.what());
-      }
-
-      vTaskDelay(1000 / portTICK_PERIOD_MS);
+      continue;
     }
+    try
+    {
+      Serial.println("[LOG] ENVIO INFORMACAO SISTEMA");
+      DynamicJsonDocument doc = aquariumServices.getSystemInformation();
+
+      std::string resultString;
+      serializeJson(doc, resultString);
+      
+      bleSystemInformationCallback.notify(bleSystemInformationCharacteristic, resultString.c_str());
+      
+      doc.clear();
+    }
+    catch (const std::exception& e)
+    {
+        Serial.printf("erro: %s\n", e.what());
+    }
+
+    vTaskDelay(1000 / portTICK_PERIOD_MS);
   }
 }
 void TaskOneWireControl()
@@ -99,7 +100,6 @@ void TaskOneWireControl()
 
     vTaskDelay(1000 / portTICK_PERIOD_MS);
   }
-  vTaskDelete(NULL);
 }
 void TaskAquariumTemperatureControl()
 {
@@ -111,23 +111,24 @@ void TaskAquariumTemperatureControl()
 
   while (true)
   {
-    if(xSemaphoreTake(isExecutingOneWire, portMAX_DELAY))
+    if(!xSemaphoreTake(isExecutingOneWire, portMAX_DELAY))
     {
-      temperature = aquarium.readTemperature();
-      float goalTemperature = (aquarium.getMaxTemperature() - aquarium.getMinTemperature()) / 2 + aquarium.getMinTemperature();
-      double erro = goalTemperature - temperature;
-      integralError += erro;
-      if (temperature == -127.0f)
-      {
-        aquarium.setStatusHeater(false);
-      }
-      flagTemeperature = temperature;
-      output = Kp * erro + Ki * integralError - Kd * (temperature - flagTemeperature);
-
-      aquarium.setStatusHeater(output < 0);
-
-      vTaskDelay(1000 / portTICK_PERIOD_MS);
+      continue;
     }
+    temperature = aquarium.readTemperature();
+    float goalTemperature = (aquarium.getMaxTemperature() - aquarium.getMinTemperature()) / 2 + aquarium.getMinTemperature();
+    double erro = goalTemperature - temperature;
+    integralError += erro;
+    if (temperature == -127.0f)
+    {
+      aquarium.setStatusHeater(false);
+    }
+    flagTemeperature = temperature;
+    output = Kp * erro + Ki * integralError - Kd * (temperature - flagTemeperature);
+
+    aquarium.setStatusHeater(output < 0);
+
+    vTaskDelay(1000 / portTICK_PERIOD_MS);
   }
 }
 void TaskWaterPump()
@@ -140,9 +141,7 @@ void TaskWaterPump()
     }
     catch (const std::exception& e)
     {
-      Serial.println("\n********** WATER INFORMATION **********\n");
-      Serial.printf("erro: %s\n", e.what());
-      Serial.println("\n**************** END *****************\n");
+      Serial.printf("[erro] [WATER INFORMATION]: %s\n", e.what());
     }
     vTaskDelay(6000 / portTICK_PERIOD_MS);
   }
@@ -157,9 +156,7 @@ void TaskPeristaultic()
     }
     catch (const std::exception& e)
     {
-    Serial.println("\n********** PERISTAULTIC INFORMATION **********\n");
-        Serial.printf("erro: %s\n", e.what());
-    Serial.println("\n**************** END *****************\n");
+      Serial.printf("[erro] [PERISTAULTIC INFORMATION]: %s\n", e.what());
     }
 
     vTaskDelay(500 / portTICK_PERIOD_MS);
@@ -213,32 +210,15 @@ DynamicJsonDocument updateConfigurationEndpoint(DynamicJsonDocument *doc)
 }
 DynamicJsonDocument getConfigurationEndpoint(DynamicJsonDocument *doc)
 {
-  DynamicJsonDocument response(5028);
+  Serial.println("[LOG] GET CONFIGURACAO"); 
 
-  response["data"] = aquariumServices.getConfiguration();
-  response["status_code"] = 200;
-  
-  std::string data;
-  serializeJson(response, data);
-  
-  Serial.printf("%s",data.c_str());
-  
-  Serial.println("[LOG] GET CONFIGURACAO");
-
-  return response;
+  return aquariumServices.getConfiguration();
 }
 DynamicJsonDocument getRoutinesEndpoint(DynamicJsonDocument *doc)
 {
-  // if (!doc->containsKey("weekday"))
-  // {
-  //   throw std::runtime_error("Parametro fora de escopo");
-  // }
-
-  // int weekday = (*doc)["weekday"].as<int>();
-
   try {
     Serial.println("[LOG] GET ROTINAS");
-    return aquariumServices.getRoutines(-1);
+    return aquariumServices.getRoutines();
   }
   catch(const std::exception& e)
   {
@@ -298,17 +278,17 @@ void startBLE(){
   bleConfigurationCallback.onWriteCallback = updateConfigurationEndpoint;
   bleConfigurationCallback.onReadCallback = getConfigurationEndpoint;
 
-  bleConfigurationCharacteristic = pService->createCharacteristic(CHARACTERISTIC_CONFIGURATION_UUID, BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_WRITE);
+  bleConfigurationCharacteristic = pService->createCharacteristic(CHARACTERISTIC_CONFIGURATION_UUID, BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_WRITE | BLECharacteristic::PROPERTY_NOTIFY);
   bleConfigurationCharacteristic->setCallbacks(&bleConfigurationCallback);
   bleConfigurationCharacteristic->setValue("{}");
 
 
   pServiceRoutinas = pServer->createService(SERVICE_ROUTINES_UUID);
 
-  // bleRoutinesUpdateCallback.onWriteCallback = setRoutinesEndpoint;
-  // bleRoutinesUpdateCharacteristic = pServiceRoutinas->createCharacteristic(CHARACTERISTIC_UPDATE_ROUTINES_UUID, BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_WRITE);
-  // bleRoutinesUpdateCharacteristic->setCallbacks(&bleRoutinesUpdateCallback);
-  // bleRoutinesUpdateCharacteristic->setValue("{}");
+  bleRoutinesUpdateCallback.onWriteCallback = setRoutinesEndpoint;
+  bleRoutinesUpdateCharacteristic = pServiceRoutinas->createCharacteristic(CHARACTERISTIC_UPDATE_ROUTINES_UUID, BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_WRITE | BLECharacteristic::PROPERTY_NOTIFY);
+  bleRoutinesUpdateCharacteristic->setCallbacks(&bleRoutinesUpdateCallback);
+  bleRoutinesUpdateCharacteristic->setValue("{}");
 
 
   

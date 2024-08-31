@@ -24,7 +24,7 @@ public:
 
     void updateConfiguration(int min_temperature, int max_temperature, int ph_min, int ph_max, int dosagem, int ppm);
     DynamicJsonDocument getSystemInformation();
-    DynamicJsonDocument getRoutines(int weekday);
+    DynamicJsonDocument getRoutines();
     DynamicJsonDocument getConfiguration();
     void setRoutines(vector<routine> routines);
     void controlPeristaultic();
@@ -87,7 +87,7 @@ DynamicJsonDocument AquariumServices::getConfiguration(){
 
     return doc;
 }
-DynamicJsonDocument AquariumServices::getRoutines(int weekday){
+DynamicJsonDocument AquariumServices::getRoutines(){
     DynamicJsonDocument doc(35000);
     JsonArray dataArray = doc.to<JsonArray>();
 
