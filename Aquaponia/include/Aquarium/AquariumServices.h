@@ -22,13 +22,15 @@ public:
     AquariumServices(Aquarium *aquarium);
     ~AquariumServices();
 
-    void updateConfiguration(int min_temperature, int max_temperature, int ph_min, int ph_max, int dosagem, int ppm);
+    void updateConfiguration(int min_temperature, int max_temperature, int ph_min, int ph_max, int dosagem, int tempo_reaplicacao);
     DynamicJsonDocument getSystemInformation();
     DynamicJsonDocument getRoutines();
     DynamicJsonDocument getConfiguration();
-    void setRoutines(vector<routine> routines);
+    void setRoutines(routine r);
+    void addRoutines(routine r);
+    void removeRoutine(char id[36]);
     void controlPeristaultic();
-    void handlerWaterPump();
+    DynamicJsonDocument handlerWaterPump();
 };
 
 AquariumServices::AquariumServices(Aquarium *aquarium) : _aquarium(aquarium)
@@ -94,7 +96,7 @@ DynamicJsonDocument AquariumServices::getRoutines(){
     vector<routine> data = _aquarium->readRoutine();    
     for (const auto& r : data) {
         JsonObject rotina = dataArray.createNestedObject();
-        
+        rotina["id"] = r.id;
         JsonArray weekdays = rotina.createNestedArray("WeekDays");
         for (size_t i = 0; i < sizeof(r.weekday) / sizeof(r.weekday[0]); ++i) {
             weekdays.add(r.weekday[i]);
@@ -112,36 +114,81 @@ DynamicJsonDocument AquariumServices::getRoutines(){
   
     return doc;
 }
-void AquariumServices::setRoutines(vector<routine> routines){
+
+void AquariumServices::setRoutines(routine r){
+    vector<routine> routines = _aquarium->readRoutine();
+    size_t i = 0;
+    bool found = false;
+    while (i < routines.size()) {
+        if(strcmp(r.id, routines[i].id) == 0){
+            routines[i] = r;
+            found = true;
+            break;
+        }
+        i++;
+    }
+    if(found)
+        _aquarium->writeRoutine(routines);
+}
+
+void AquariumServices::removeRoutine(char id[37]){
+    vector<routine> routines = _aquarium->readRoutine();
+    size_t i = 0;
+    bool found = false;
+    while (i < routines.size()) {
+        if(strcmp(id, routines[i].id) == 0){
+            routines.erase(routines.begin() + i);
+            found = true;
+            break;
+        }
+        i++;
+    }
+    if(found)
+        _aquarium->writeRoutine(routines);
+}
+void AquariumServices::addRoutines(routine r){
+    vector<routine> routines =_aquarium->readRoutine();
+    routines.push_back(r);
   _aquarium->writeRoutine(routines);
 }
-void AquariumServices::updateConfiguration(int min_temperature, int max_temperature, int ph_min, int ph_max, int dosagem, int ppm){
+void AquariumServices::updateConfiguration(int min_temperature, int max_temperature, int ph_min, int ph_max, int dosagem, int tempo_reaplicacao){
     if (!_aquarium->setHeaterAlarm(min_temperature, max_temperature))
     {
       throw std::runtime_error("Falha ao definir intervalo de temperatura, tente novamente");
     }
 
-    if (!_aquarium->setPhAlarm(ph_max, ph_max))
+    if (!_aquarium->setPhAlarm(ph_min, ph_max))
     {
       throw std::runtime_error("Falha ao definir intervalo de ph, tente novamente");
     }
 }
-void AquariumServices::handlerWaterPump() {
-    Date now = clockUTC.getDateTime();
+DynamicJsonDocument AquariumServices::handlerWaterPump() {
+    DynamicJsonDocument doc(5028);
+
 
     vector<routine> rotinas = _aquarium->readRoutine();
     for (const auto& routine : rotinas) {
+        Date now = clockUTC.getDateTime();
+        
         if(routine.weekday[now.day_of_week]){
             for (const auto& h : routine.horarios) {
                 if((now.hour * 60 + now.minute) >= h.start  && (now.hour * 60 + now.minute) < h.end){
                     _aquarium->setWaterPumpStatus(HIGH);
-                    return;
+                    rotinas.clear();
+                    doc["status_pump"] = true;
+                    doc["duracao"] = h.end - h.start;
+                    doc["tempo_restante"] = h.end - (now.hour * 60 + now.minute);
+                    return doc;
                 }
                 _aquarium->setWaterPumpStatus(LOW);
+                doc["status_pump"] = false;
+                doc["duracao"] = -1;
+                doc["tempo_restante"] = -1;
             }
         }
     }
     rotinas.clear();
+    return doc;
 }
 
 

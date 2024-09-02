@@ -13,7 +13,7 @@
 #include "FS.h"
 #include "SPIFFS.h"
 #include "routines.h"
-
+#include "uuid.h"
 using namespace std;
 
 class Aquarium
@@ -41,55 +41,67 @@ public:
         pinMode(PIN_PH, INPUT);
         pinMode(PIN_TURBIDITY, INPUT);
 
-        if (_memory.read<bool>(ADDRESS_START))
+        if (_memory.read<bool>(ADDRESS_START)){
+            Serial.println("Startado");
             return;
+        }
 
         Serial.printf(setHeaterAlarm(MIN_AQUARIUM_TEMP, MAX_AQUARIUM_TEMP) ? "TEMPERATURAS DEFINIDAS" : "FALHA AO DEFINIR INTERVALO DE TEMPERATURA");
         Serial.printf("\n");
         Serial.printf(setPhAlarm(MIN_AQUARIUM_PH, MAX_AQUARIUM_PH) ? "PH DEFINIDO" : "FALHA AO DEFINIR INTERVALO DE PH");
 
-        vector<routine> data;
+        // vector<routine> data;
 
-        for(int w = 0; w < 1; w++){
-            routine routines;
-            routines.weekday[0] = w == 0;
-            routines.weekday[1] = w == 1;
-            routines.weekday[2] = w == 2;
-            routines.weekday[3] = w == 3;
-            routines.weekday[4] = w == 4;
-            routines.weekday[5] = w == 5;
-            routines.weekday[6] = w == 6;
+        // for(int w = 0; w < 1; w++){
+        //     routine routines;
+        //     UUID uuid;
+        //     uuid.generate();
+        //     strncpy(routines.id,  uuid.toCharArray(), 36);
+        //     routines.id[36] = '\0';
+        //     Serial.println(strlen(routines.id));
+        //     routines.weekday[0] = w == 0;
+        //     routines.weekday[1] = w == 1;
+        //     routines.weekday[2] = w == 2;
+        //     routines.weekday[3] = w == 3;
+        //     routines.weekday[4] = w == 4;
+        //     routines.weekday[5] = w == 5;
+        //     routines.weekday[6] = w == 6;
 
-            const int TEMPO_OXIGENACAO_DEFAULT = 15;
-            const int TEMPO_IRRIGACAO_DEFAULT = 15;
-            for(int i = 0; i < 1440; i += TEMPO_IRRIGACAO_DEFAULT + TEMPO_OXIGENACAO_DEFAULT){
-                horario horario;
-                horario.start = i;
-                horario.end = i + TEMPO_IRRIGACAO_DEFAULT;
+        //     const int TEMPO_OXIGENACAO_DEFAULT = 15;
+        //     const int TEMPO_IRRIGACAO_DEFAULT = 15;
+        //     for(int i = 0; i < 1440; i += TEMPO_IRRIGACAO_DEFAULT + TEMPO_OXIGENACAO_DEFAULT){
+        //         horario horario;
+        //         horario.start = i;
+        //         horario.end = i + TEMPO_IRRIGACAO_DEFAULT;
                 
-                if(horario.end > 1440)
-                    break;
+        //         if(horario.end > 1440)
+        //             break;
 
-                routines.horarios.push_back(horario);
-            }
-            data.push_back(routines);
-        }
-        writeRoutine(data);
-        data.clear();
+        //         routines.horarios.push_back(horario);
+        //     }
+        //     data.push_back(routines);
+        // }
+        // writeRoutine(data);
+        // data.clear();
     }
     void writeRoutine(const vector<routine> &routines)
     {
         if (!SPIFFS.begin(true)) {
             throw std::runtime_error("Falha ao montar o sistema de arquivos SPIFFS");
         }
-
+        if(SPIFFS.exists("/data.bin"))
+            SPIFFS.remove("/data.bin");
+        
         File file = SPIFFS.open("/data.bin", FILE_WRITE);
         
         uint32_t routinesSize = routines.size();
         file.write((uint8_t *)&routinesSize, sizeof(routinesSize));
 
         for (const auto &r : routines) {
+            file.write((uint8_t*)r.id, sizeof(r.id));
+            Serial.println(r.id);
             file.write((uint8_t *)r.weekday, sizeof(r.weekday));
+
 
             uint32_t horariosSize = r.horarios.size();
             file.write((uint8_t *)&horariosSize, sizeof(horariosSize));
@@ -104,6 +116,7 @@ public:
     vector<routine> readRoutine()
     {
         vector<routine> routines;
+
         File file = SPIFFS.open("/data.bin", FILE_READ);
         if (!file) {
             throw std::runtime_error("Erro ao abrir o arquivo para leitura");
@@ -114,8 +127,12 @@ public:
         
         for (uint32_t i = 0; i < routinesSize; ++i) {
             routine r;
+            if (file.read((uint8_t*)r.id, sizeof(r.id)) != sizeof(r.id)) {
+                Serial.println("Erro ao ler o ID da rotina");
+                break;
+            }
 
-            file.read((uint8_t *)r.weekday, sizeof(r.weekday));
+            file.read((uint8_t *)&r.weekday, sizeof(r.weekday));
 
             uint32_t horariosSize;
             file.read((uint8_t *)&horariosSize, sizeof(horariosSize));

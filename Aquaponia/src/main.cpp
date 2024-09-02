@@ -2,6 +2,7 @@
 
 
 #include "Aquarium/Aquarium.h"
+#include "Aquarium/Routines.h"
 #include "Clock/Clock.h"
 #include "rtos/TasksManagement.h"
 #include "Base/memory.h"
@@ -18,17 +19,21 @@ BLEServer *pServer = NULL;
 BLEService *pService;
 BLEService *pServiceRoutinas;
 
-BLECharacteristic *bleConfigurationCharacteristic;
-BLECharacteristic *bleRoutinesUpdateCharacteristic;
-BLECharacteristic *bleRoutinesGetCharacteristic;
-BLECharacteristic *bleSystemInformationCharacteristic;
-BLECharacteristic *bleWiFiCharacteristic;
+BLECharacteristic *bleConfigurationCharacteristic,
+                  *blePumpCharacteristic,
+                  *bleSystemInformationCharacteristic,
+                  *bleRoutinesUpdateCharacteristic,
+                  *bleRoutinesGetCharacteristic,
+                  *bleRoutinesDeleteCharacteristic,
+                  *bleRoutinesCreateCharacteristic;
 
-BluetoothCallback bleConfigurationCallback;
-BluetoothCallback bleWiFiCallback;
-BluetoothCallback bleSystemInformationCallback;
-BluetoothCallback bleRoutinesUpdateCallback;
-BluetoothCallback bleRoutinesGetCallback;
+BluetoothCallback bleConfigurationCallback,
+                  blePumpCallback,
+                  bleSystemInformationCallback,
+                  bleRoutinesUpdateCallback,
+                  bleRoutinesDeleteCallback,
+                  bleRoutinesGetCallback,
+                  bleRoutinesCreateCallback;
 
 bool deviceConnected = false;
 
@@ -80,7 +85,7 @@ void TaskSendSystemInformation()
         Serial.printf("erro: %s\n", e.what());
     }
 
-    vTaskDelay(1000 / portTICK_PERIOD_MS);
+    vTaskDelay(5000 / portTICK_PERIOD_MS);
   }
 }
 void TaskOneWireControl()
@@ -137,7 +142,10 @@ void TaskWaterPump()
   {
     try
     {
-        aquariumServices.handlerWaterPump();
+      const char* data;
+      DynamicJsonDocument doc = aquariumServices.handlerWaterPump();
+      deserializeJson(doc, data);
+      blePumpCallback.notify(blePumpCharacteristic, data);
     }
     catch (const std::exception& e)
     {
@@ -194,8 +202,8 @@ DynamicJsonDocument updateConfigurationEndpoint(DynamicJsonDocument *doc)
   Serial.println("[LOG] ATUALIZAR CONFIGURACAO");
 
   if (!doc->containsKey("min_temperature") || !doc->containsKey("max_temperature") || 
-      !doc->containsKey("ph_min") || !doc->containsKey("ph_max") || 
-      !doc->containsKey("dosagem") || !doc->containsKey("ppm"))
+      !doc->containsKey("min_ph") || !doc->containsKey("max_ph") || 
+      !doc->containsKey("dosagem"))
   {
     throw std::runtime_error("Parametro fora de escopo");
   }
@@ -205,7 +213,7 @@ DynamicJsonDocument updateConfigurationEndpoint(DynamicJsonDocument *doc)
                                        (*doc)["ph_max"].as<int>(),
                                        (*doc)["ph_min"].as<int>(),
                                        (*doc)["dosagem"].as<int>(),
-                                       (*doc)["ppm"].as<int>());
+                                       (*doc)["tempo_reaplicacao"].as<int>());
   return (*doc);
 }
 DynamicJsonDocument getConfigurationEndpoint(DynamicJsonDocument *doc)
@@ -234,27 +242,64 @@ DynamicJsonDocument setRoutinesEndpoint(DynamicJsonDocument *doc)
   DynamicJsonDocument resp(5028);
   resp["status_code"] = 200;
 
-  std::vector<routine> routines;
-
-  for (JsonObject jsonRoutine : doc->as<JsonArray>()) {
-      routine r;
-
-      JsonArray jsonWeekday = jsonRoutine["weekday"].as<JsonArray>();
-      for (int i = 0; i < 7; i++) {
-          r.weekday[i] = jsonWeekday[i];
-      }
-
-      for (JsonObject jsonHorario : jsonRoutine["horarios"].as<JsonArray>()) {
-          horario h;
-          h.start = jsonHorario["start"];
-          h.end = jsonHorario["end"];
-          r.horarios.push_back(h);
-      }
-
-      routines.push_back(r);
+  JsonObject jsonRoutine = doc->as<JsonObject>();
+  routine r;
+  strncpy(r.id, jsonRoutine["id"].as<const char*>(), 36);
+  r.id[36] = '\0';
+  
+  JsonArray jsonWeekday = jsonRoutine["WeekDays"].as<JsonArray>();
+  for (int i = 0; i < 7; i++) {
+    r.weekday[i] = jsonWeekday[i];
   }
-  aquariumServices.setRoutines(routines);
+  for (JsonObject jsonHorario : jsonRoutine["horarios"].as<JsonArray>()) {
+    horario h;
+    h.start = jsonHorario["start"];
+    h.end = jsonHorario["end"];
+    r.horarios.push_back(h);
+  }
+  aquariumServices.setRoutines(r);
   // bleRoutinesGetCharacteristic->notify();
+  return resp;
+}
+
+DynamicJsonDocument createRoutinesEndpoint(DynamicJsonDocument *doc)
+{
+ 
+  Serial.println("[LOG] CRIAR ROTINA");
+  DynamicJsonDocument resp(5028);
+  resp["status_code"] = 200;
+
+  JsonObject jsonRoutine = doc->as<JsonObject>();
+  routine r;
+  strncpy(r.id, jsonRoutine["id"].as<const char*>(), 36);
+  r.id[36] = '\0';
+
+  JsonArray jsonWeekday = jsonRoutine["WeekDays"].as<JsonArray>();
+  for (int i = 0; i < 7; i++) {
+      r.weekday[i] = jsonWeekday[i];
+  }
+
+  for (JsonObject jsonHorario : jsonRoutine["horarios"].as<JsonArray>()) {
+      horario h;
+      h.start = jsonHorario["start"];
+      h.end = jsonHorario["end"];
+      r.horarios.push_back(h);
+  }
+  aquariumServices.addRoutines(r);
+  return resp;
+}
+DynamicJsonDocument deleteRoutinesEndpoint(DynamicJsonDocument *doc)
+{
+  Serial.println("[LOG] DELETAR ROTINA");
+  DynamicJsonDocument resp(5028);
+  resp["status_code"] = 200;
+
+  JsonObject jsonRoutine = doc->as<JsonObject>();
+  char id[37];
+  strncpy(id, jsonRoutine["id"].as<const char*>(), 36);
+  id[36] = '\0';
+
+  aquariumServices.removeRoutine(id);
   return resp;
 }
 
@@ -282,6 +327,10 @@ void startBLE(){
   bleConfigurationCharacteristic->setCallbacks(&bleConfigurationCallback);
   bleConfigurationCharacteristic->setValue("{}");
 
+  blePumpCharacteristic = pService->createCharacteristic(CHARACTERISTIC_PUMP_UUID, BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_NOTIFY);
+  blePumpCharacteristic->setCallbacks(&blePumpCallback);
+  blePumpCharacteristic->setValue("{}");
+
 
   pServiceRoutinas = pServer->createService(SERVICE_ROUTINES_UUID);
 
@@ -290,14 +339,20 @@ void startBLE(){
   bleRoutinesUpdateCharacteristic->setCallbacks(&bleRoutinesUpdateCallback);
   bleRoutinesUpdateCharacteristic->setValue("{}");
 
-
-  
-  bleRoutinesGetCallback.onWriteCallback = setRoutinesEndpoint;
   bleRoutinesGetCallback.onReadCallback = getRoutinesEndpoint;
-
-  bleRoutinesGetCharacteristic = pServiceRoutinas->createCharacteristic(CHARACTERISTIC_GET_ROUTINES_UUID, BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_WRITE | BLECharacteristic::PROPERTY_NOTIFY);
+  bleRoutinesGetCharacteristic = pServiceRoutinas->createCharacteristic(CHARACTERISTIC_GET_ROUTINES_UUID, BLECharacteristic::PROPERTY_READ |  BLECharacteristic::PROPERTY_NOTIFY);
   bleRoutinesGetCharacteristic->setCallbacks(&bleRoutinesGetCallback);
   bleRoutinesGetCharacteristic->setValue("{}");
+
+  bleRoutinesDeleteCallback.onWriteCallback = deleteRoutinesEndpoint;
+  bleRoutinesDeleteCharacteristic = pServiceRoutinas->createCharacteristic(CHARACTERISTIC_DELETE_ROUTINES_UUID, BLECharacteristic::PROPERTY_WRITE | BLECharacteristic::PROPERTY_NOTIFY);
+  bleRoutinesDeleteCharacteristic->setCallbacks(&bleRoutinesDeleteCallback);
+  bleRoutinesDeleteCharacteristic->setValue("{}");
+
+  bleRoutinesCreateCallback.onWriteCallback = createRoutinesEndpoint;
+  bleRoutinesCreateCharacteristic = pServiceRoutinas->createCharacteristic(CHARACTERISTIC_CREATE_ROUTINES_UUID, BLECharacteristic::PROPERTY_WRITE | BLECharacteristic::PROPERTY_NOTIFY);
+  bleRoutinesCreateCharacteristic->setCallbacks(&bleRoutinesCreateCallback);
+  bleRoutinesCreateCharacteristic->setValue("{}");
 
 
 

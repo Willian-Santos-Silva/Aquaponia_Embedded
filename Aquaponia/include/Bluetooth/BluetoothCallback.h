@@ -24,41 +24,36 @@ private:
     void onWrite(BLECharacteristic* characteristic) {
         Serial.printf("WRITE:\n");
 
-        
         std::string value = characteristic->getValue();
 
         if(static_cast<unsigned char>(value.back()) != 0xFF){
             if(!isReceivingMessage){
                 isReceivingMessage = true;
                 
-                characteristic->notify(false);
                 request.clear();
             }
-
-            Serial.printf("%s", value.c_str());
             request += value;
-            Serial.printf("\n\n%s\n", request.c_str());
             return;
         }
-        characteristic->notify(true);
+        
         isReceivingMessage = false;
         Serial.println("end");
         
         if(!onWriteCallback) return;
 
         try {
-            DynamicJsonDocument docRequest = tryDesserialize(request.empty() ? request.c_str() : "{}");
-            Serial.printf("Mensagem recebida: %s\r\n", request.c_str());
+            DynamicJsonDocument docRequest = tryDesserialize(!request.empty() ? request.c_str() : "{}");
+            Serial.printf("[LOG] [BLE:WRITE]: %s\r\n", request.c_str());
 
             DynamicJsonDocument response = onWriteCallback(&docRequest);
             docRequest.clear();
             
             responseData = trySerialize(&response);
-            // sendBLE(characteristic, responseData.c_str());
         }
         catch (const std::exception& e)
         {
-            characteristic->setValue("{}");
+            uint8_t endSignal = 0xFF;
+            characteristic->setValue(&endSignal, sizeof(endSignal));
             Serial.printf("[write] erro: %s\n", e.what());
         }
     }
@@ -79,7 +74,8 @@ private:
         }
         catch (const std::exception& e)
         {
-            characteristic->setValue("{}");
+            uint8_t endSignal = 0xFF;
+            characteristic->setValue(&endSignal, sizeof(endSignal));
             Serial.printf("[read] erro: %s\n", e.what());
         }
     }
@@ -99,23 +95,18 @@ private:
         if (dataLength <= 0) { return; }
 
         size_t offset = 0;
+        std::vector<std::string> chunksList;
 
         while (offset < dataLength) {
-            std::string chunk;
-            size_t chunkSize;
-            do {
-                chunk.clear();
-                chunkSize = std::min(MAX_SIZE-1, dataLength - offset);
-                chunk = valueStr.substr(offset, chunkSize);
-            }while(chunk.length() != chunkSize);
-            
-            Serial.printf("set: %s\r\n", chunk.c_str());
-            characteristic->setValue(chunk.c_str());
-            
-            chunk.clear();
-            characteristic->notify();
-
+            size_t chunkSize = std::min(MAX_SIZE, dataLength - offset);
+            chunksList.push_back(valueStr.substr(offset, chunkSize));
             offset += chunkSize;
+        }
+
+        for (size_t i = 0; i < chunksList.size(); i++) {
+            characteristic->setValue(chunksList[i].c_str());
+            characteristic->notify();
+            Serial.printf("set: %s\r\n", chunksList[i].c_str());
         }
         valueStr.clear();
         
@@ -125,7 +116,7 @@ private:
     }
  
     DynamicJsonDocument tryDesserialize(const char*  data){
-        DynamicJsonDocument doc(sizeof(data) + 200);
+        DynamicJsonDocument doc(35000);
 
         DeserializationError error = deserializeJson(doc, data);
         

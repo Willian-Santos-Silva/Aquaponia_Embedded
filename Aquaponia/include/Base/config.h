@@ -35,10 +35,13 @@
 #define CHARACTERISTIC_INFO_UUID "eeaaf2ad-5264-47a1-a49f-5b274ab1a0fe"
 #define CHARACTERISTIC_SYSTEM_INFO_UUID "26f8dc2f-213a-4048-a898-07eaf4f2089e"
 #define CHARACTERISTIC_CONFIGURATION_UUID "b371220d-3559-410d-8a47-78b06df6eb3a"
+#define CHARACTERISTIC_PUMP_UUID "da4a95ee-6998-40a6-ad8c-c87087e15ca6"
 
 #define SERVICE_ROUTINES_UUID        "bb1db1b1-6696-4bfa-a140-8d5836e980c8"
 #define CHARACTERISTIC_UPDATE_ROUTINES_UUID "4b9c96d4-cf69-45ca-a157-9ac8d0b7b155"
 #define CHARACTERISTIC_GET_ROUTINES_UUID "7dc355e9-6089-4a6f-b22c-f65820cad8c0"
+#define CHARACTERISTIC_DELETE_ROUTINES_UUID "77fb44d3-2e17-4cec-9c22-e9a413c4eea7"
+#define CHARACTERISTIC_CREATE_ROUTINES_UUID "61b86e63-66bc-4b19-b178-5b5e92a67b9d"
 
 /*
 ==========================================================================================================================================
