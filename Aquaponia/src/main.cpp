@@ -1,5 +1,6 @@
 #include "Clock/Date.h"
 
+#include <time.h>
 
 #include "Aquarium/Aquarium.h"
 #include "Aquarium/Routines.h"
@@ -22,6 +23,7 @@ BLEService *pServiceRoutinas;
 BLECharacteristic *bleConfigurationCharacteristic,
                   *blePumpCharacteristic,
                   *bleSystemInformationCharacteristic,
+                  *bleRTCCharacteristic,
                   *bleRoutinesUpdateCharacteristic,
                   *bleRoutinesGetCharacteristic,
                   *bleRoutinesDeleteCharacteristic,
@@ -30,6 +32,7 @@ BLECharacteristic *bleConfigurationCharacteristic,
 BluetoothCallback bleConfigurationCallback,
                   blePumpCallback,
                   bleSystemInformationCallback,
+                  bleRTCCallback,
                   bleRoutinesUpdateCallback,
                   bleRoutinesDeleteCallback,
                   bleRoutinesGetCallback,
@@ -175,7 +178,7 @@ void startTasks(){
   isExecutingOneWire = xSemaphoreCreateBinary();
   taskOneWire.begin(&TaskOneWireControl, "OneWire", 1000, 1);
   taskTemperatureControl.begin(&TaskAquariumTemperatureControl, "TemperatureAquarium", 1300, 2);
-  taskWaterPump.begin(&TaskWaterPump, "WaterPump", 2000, 3);
+  taskWaterPump.begin(&TaskWaterPump, "WaterPump",3000, 3);
   taskSendInfo.begin(&TaskSendSystemInformation, "SendInfo", 5000, 4);
 }
 
@@ -196,6 +199,18 @@ class MyServerCallbacks: public BLEServerCallbacks {
 // // ============================================================================================
 // //                                      ENDPOINTS
 // // ============================================================================================
+
+DynamicJsonDocument SetRTC(DynamicJsonDocument *doc){
+  
+  if (!doc->containsKey("rtc"))
+  {
+    throw std::runtime_error("Parametro fora de escopo");
+  }
+  long timestamp =(*doc)["rtc"].as<long>();
+  struct tm timeinfo;
+  localtime_r(&timestamp, &timeinfo);
+  clockUTC.setRTC(&timeinfo);
+}
 
 DynamicJsonDocument updateConfigurationEndpoint(DynamicJsonDocument *doc)
 {
@@ -326,6 +341,11 @@ void startBLE(){
   bleConfigurationCharacteristic = pService->createCharacteristic(CHARACTERISTIC_CONFIGURATION_UUID, BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_WRITE | BLECharacteristic::PROPERTY_NOTIFY);
   bleConfigurationCharacteristic->setCallbacks(&bleConfigurationCallback);
   bleConfigurationCharacteristic->setValue("{}");
+
+  bleRTCCallback.onWriteCallback = SetRTC;
+  bleRTCCharacteristic = pService->createCharacteristic(CHARACTERISTIC_RTC_UUID, BLECharacteristic::PROPERTY_WRITE | BLECharacteristic::PROPERTY_NOTIFY);
+  bleRTCCharacteristic->setCallbacks(&bleRTCCallback);
+  bleRTCCharacteristic->setValue("{}");
 
   blePumpCharacteristic = pService->createCharacteristic(CHARACTERISTIC_PUMP_UUID, BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_NOTIFY);
   blePumpCharacteristic->setCallbacks(&blePumpCallback);

@@ -33,17 +33,18 @@ public:
       }
 
       Serial.println(&timeinfo, "%A, %B %d %Y %H:%M:%S zone %Z %z ");
-      setRTC(timeinfo);
+      setRTC(&timeinfo);
 
       Serial.println(getDateTime().getFullDate());
     }
 
-    void setRTC(tm date)
+    void setRTC(tm *date)
     {
+        Serial.println(date, "%A, %B %d %Y %H:%M:%S zone %Z %z ");
         if (!isRunningClock())
             rtc.clockEnable(true);
 
-        if(!rtc.setDateTime(date.tm_hour, date.tm_min, date.tm_sec, date.tm_mday, date.tm_mon + 1, date.tm_year + 1900, date.tm_wday)){
+        if(!rtc.setDateTime(date->tm_hour, date->tm_min, date->tm_sec, date->tm_mday, date->tm_mon + 1, date->tm_year + 1900, date->tm_wday)){
             throw std::runtime_error("Erro ao definir data e hora");
         }
 

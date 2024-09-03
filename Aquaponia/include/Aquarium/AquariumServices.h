@@ -45,7 +45,7 @@ DynamicJsonDocument AquariumServices::getSystemInformation()
 {
     DynamicJsonDocument doc(5028);
     doc["temperatura"] = _aquarium->readTemperature();
-    // doc["rtc"] = clockUTC.getDateTime().getFullDate();
+    doc["rtc"] = clockUTC.getDateTime().getFullDate();
     doc["ph"] = _aquarium->getPh();
     doc["ph_v"] = _aquarium->getTensao();
     // doc["ip"] = localNetwork.GetIp().c_str();
@@ -163,10 +163,19 @@ void AquariumServices::updateConfiguration(int min_temperature, int max_temperat
     }
 }
 DynamicJsonDocument AquariumServices::handlerWaterPump() {
-    DynamicJsonDocument doc(5028);
-
+    Serial.println("Handler");
+    DynamicJsonDocument doc(1000);
 
     vector<routine> rotinas = _aquarium->readRoutine();
+    Serial.println("Peguei");
+    if(rotinas.empty()){
+        _aquarium->setWaterPumpStatus(LOW);
+
+        doc["status_pump"] = false;
+        doc["duracao"] = -1;
+        doc["tempo_restante"] = -1;
+        return doc;
+    }
     for (const auto& routine : rotinas) {
         Date now = clockUTC.getDateTime();
         

@@ -52,13 +52,13 @@ public:
 
         // vector<routine> data;
 
+        // UUID uuid;
         // for(int w = 0; w < 1; w++){
         //     routine routines;
-        //     UUID uuid;
         //     uuid.generate();
         //     strncpy(routines.id,  uuid.toCharArray(), 36);
         //     routines.id[36] = '\0';
-        //     Serial.println(strlen(routines.id));
+            
         //     routines.weekday[0] = w == 0;
         //     routines.weekday[1] = w == 1;
         //     routines.weekday[2] = w == 2;
@@ -81,7 +81,9 @@ public:
         //     }
         //     data.push_back(routines);
         // }
+        // Serial.println("legal");
         // writeRoutine(data);
+        // Serial.println("escreveu");
         // data.clear();
     }
     void writeRoutine(const vector<routine> &routines)
@@ -89,17 +91,17 @@ public:
         if (!SPIFFS.begin(true)) {
             throw std::runtime_error("Falha ao montar o sistema de arquivos SPIFFS");
         }
-        if(SPIFFS.exists("/data.bin"))
-            SPIFFS.remove("/data.bin");
+        if(SPIFFS.exists("/rotinas.bin"))
+            SPIFFS.remove("/rotinas.bin");
         
-        File file = SPIFFS.open("/data.bin", FILE_WRITE);
+        File file = SPIFFS.open("/rotinas.bin", FILE_WRITE);
         
         uint32_t routinesSize = routines.size();
         file.write((uint8_t *)&routinesSize, sizeof(routinesSize));
 
         for (const auto &r : routines) {
             file.write((uint8_t*)r.id, sizeof(r.id));
-            Serial.println(r.id);
+            Serial.printf("\nid: %s\n",r.id);
             file.write((uint8_t *)r.weekday, sizeof(r.weekday));
 
 
@@ -115,31 +117,54 @@ public:
 
     vector<routine> readRoutine()
     {
-        vector<routine> routines;
+        vector<routine> routines = {};
 
-        File file = SPIFFS.open("/data.bin", FILE_READ);
+        if (!SPIFFS.begin(true)) {
+            throw std::runtime_error("Falha ao montar o sistema de arquivos SPIFFS");
+        }
+        
+        File file = SPIFFS.open("/rotinas.bin", FILE_READ);
         if (!file) {
+            Serial.println("Arquivo nao existe");
             throw std::runtime_error("Erro ao abrir o arquivo para leitura");
         }
         
         uint32_t routinesSize;
-        file.read((uint8_t *)&routinesSize, sizeof(routinesSize));
+        if (file.read((uint8_t *)&routinesSize, sizeof(routinesSize)) != sizeof(routinesSize)){
+            Serial.println("Erro ao ler as rotinas");
+            file.close();
+            return vector<routine>();
+        }
+        Serial.println(routinesSize);
         
         for (uint32_t i = 0; i < routinesSize; ++i) {
             routine r;
             if (file.read((uint8_t*)r.id, sizeof(r.id)) != sizeof(r.id)) {
                 Serial.println("Erro ao ler o ID da rotina");
-                break;
+                file.close();
+                return vector<routine>();
             }
 
-            file.read((uint8_t *)&r.weekday, sizeof(r.weekday));
+            if (file.read((uint8_t *)&r.weekday, sizeof(r.weekday)) != sizeof(r.weekday)){
+                Serial.println("Erro ao ler o weekday da rotina");
+                file.close();
+                return vector<routine>();
+            }
 
             uint32_t horariosSize;
-            file.read((uint8_t *)&horariosSize, sizeof(horariosSize));
+            if (file.read((uint8_t *)&horariosSize, sizeof(horariosSize)) != sizeof(horariosSize)){
+                Serial.println("Erro ao ler o numero de horarios da rotina");
+                file.close();
+                return vector<routine>();
+            }
 
             for (uint32_t j = 0; j < horariosSize; ++j) {
                 horario h;
-                file.read((uint8_t *)&h, sizeof(h));
+                if(file.read((uint8_t *)&h, sizeof(h)) != sizeof(h)){
+                    Serial.println("Erro ao ler o horario da rotina");
+                    file.close();
+                    return vector<routine>();
+                }
                 r.horarios.push_back(h);
             }
 
