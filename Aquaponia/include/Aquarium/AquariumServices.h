@@ -45,9 +45,9 @@ DynamicJsonDocument AquariumServices::getSystemInformation()
 {
     DynamicJsonDocument doc(5028);
     doc["temperatura"] = _aquarium->readTemperature();
-    doc["rtc"] = clockUTC.getDateTime().getFullDate();
+    doc["rtc"] = clockUTC.getDateTimeString();
     doc["ph"] = _aquarium->getPh();
-    doc["ph_v"] = _aquarium->getTensao();
+    doc["ntu"] = _aquarium->getTurbidity();
     // doc["ip"] = localNetwork.GetIp().c_str();
     doc["status_heater"] = _aquarium->getHeaterStatus();
     doc["status_water_pump"] = _aquarium->getWaterPumpStatus();
@@ -59,10 +59,10 @@ void AquariumServices::controlPeristaultic(){
     int ph = _aquarium->getPh();
     int goal = _aquarium->getMinPh() + (_aquarium->getMaxPh() - _aquarium->getMinPh()) / 2;
 
-    memory.write<long>(ADDRESS_LAST_APPLICATION_ACID_BUFFER_PH, DEFAULT_TIME_DELAY_PH);
+    //memory.write<long>(ADDRESS_LAST_APPLICATION_ACID_BUFFER_PH, DEFAULT_TIME_DELAY_PH);
 
-    int ml_s = 1 / 1000;
-
+    //double ml_s = 1.0 / 1000.0;
+    double ml_s = 10.0;
     if (ph <= _aquarium->getMinPh())
     {
       int maxBufferSolutionMl = AQUARIUM_VOLUME_L * (DOSAGE_RAISE_SOLUTION_M3_L / 1000);
@@ -163,39 +163,37 @@ void AquariumServices::updateConfiguration(int min_temperature, int max_temperat
     }
 }
 DynamicJsonDocument AquariumServices::handlerWaterPump() {
-    Serial.println("Handler");
     DynamicJsonDocument doc(1000);
 
     vector<routine> rotinas = _aquarium->readRoutine();
-    Serial.println("Peguei");
-    if(rotinas.empty()){
+    if(rotinas.size() == 0){
         _aquarium->setWaterPumpStatus(LOW);
-
+        
         doc["status_pump"] = false;
         doc["duracao"] = -1;
         doc["tempo_restante"] = -1;
         return doc;
     }
+    
     for (const auto& routine : rotinas) {
-        Date now = clockUTC.getDateTime();
+        tm now = clockUTC.getDateTime();
         
-        if(routine.weekday[now.day_of_week]){
+        if(routine.weekday[now.tm_wday]){
             for (const auto& h : routine.horarios) {
-                if((now.hour * 60 + now.minute) >= h.start  && (now.hour * 60 + now.minute) < h.end){
+                if((now.tm_hour * 60 + now.tm_min) >= h.start  && (now.tm_hour * 60 + now.tm_min) < h.end){
                     _aquarium->setWaterPumpStatus(HIGH);
-                    rotinas.clear();
                     doc["status_pump"] = true;
-                    doc["duracao"] = h.end - h.start;
-                    doc["tempo_restante"] = h.end - (now.hour * 60 + now.minute);
+                    doc["duracao"] = (h.end - h.start) * 60;
+                    doc["tempo_restante"] = (h.end * 60) - (now.tm_hour *120 + now.tm_min * 60 + now.tm_sec);
                     return doc;
                 }
                 _aquarium->setWaterPumpStatus(LOW);
-                doc["status_pump"] = false;
-                doc["duracao"] = -1;
-                doc["tempo_restante"] = -1;
             }
         }
     }
+    doc["status_pump"] = false;
+    doc["duracao"] = -1;
+    doc["tempo_restante"] = -1;
     rotinas.clear();
     return doc;
 }

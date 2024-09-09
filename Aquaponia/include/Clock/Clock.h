@@ -21,7 +21,7 @@ public:
             Serial.print(".");
             delay(200);
         }
-        Serial.print("\r\n");
+        Serial.printf("\r\n");
     }
 
     void setTime(int timezone){
@@ -35,7 +35,7 @@ public:
       Serial.println(&timeinfo, "%A, %B %d %Y %H:%M:%S zone %Z %z ");
       setRTC(&timeinfo);
 
-      Serial.println(getDateTime().getFullDate());
+      Serial.println(getDateTimeString());
     }
 
     void setRTC(tm *date)
@@ -55,13 +55,26 @@ public:
     {
         return rtc.isRunning();
     }
-    Date getDateTime()
-    {
-        if(!rtc.getDateTime(&now.hour, &now.minute, &now.second, &now.day, &now.month, &now.year, &now.day_of_week)){
-            throw std::runtime_error("Falha ao ler RTC");
-        }
-        
-        return now;
+    tm getDateTime()
+    {   
+        time_t t = rtc.getEpoch();
+        // if(!rtc.getDateTime(&now.hour, &now.minute, &now.second, &now.day, &now.month, &now.year, &now.day_of_week)){
+        //     throw std::runtime_error("Falha ao ler RTC");
+        // }
+
+        return *gmtime(&t);
+    }
+    const char * getDateTimeString()
+    {   
+        time_t t = rtc.getEpoch();
+        struct tm *timeinfo = gmtime(&t);
+
+        static char dateTimeStr[30];
+        snprintf(dateTimeStr, sizeof(dateTimeStr), "%02d/%02d/%04d %02d:%02d:%02d",
+             timeinfo->tm_mday, timeinfo->tm_mon + 1, timeinfo->tm_year + 1900,
+             timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec);
+        return dateTimeStr;
+                    
     }
 };
 

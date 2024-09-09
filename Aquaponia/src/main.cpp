@@ -59,8 +59,8 @@ TaskWrapper taskSendInfo;
 TaskWrapper taskWaterPump;
 TaskWrapper taskOneWire;
 TaskWrapper taskScanWiFiDevices;
+TaskWrapper taskPeristaultic;
 SemaphoreHandle_t isExecutingOneWire;
-SemaphoreHandle_t isNotify;
 
 
 void TaskSendSystemInformation()
@@ -78,7 +78,7 @@ void TaskSendSystemInformation()
 
       std::string resultString;
       serializeJson(doc, resultString);
-      
+
       bleSystemInformationCallback.notify(bleSystemInformationCharacteristic, resultString.c_str());
       
       doc.clear();
@@ -145,16 +145,17 @@ void TaskWaterPump()
   {
     try
     {
-      const char* data;
+      std::string data;
       DynamicJsonDocument doc = aquariumServices.handlerWaterPump();
-      deserializeJson(doc, data);
-      blePumpCallback.notify(blePumpCharacteristic, data);
+      serializeJson(doc, data);
+
+      blePumpCallback.notify(blePumpCharacteristic, data.c_str());
     }
     catch (const std::exception& e)
     {
       Serial.printf("[erro] [WATER INFORMATION]: %s\n", e.what());
     }
-    vTaskDelay(6000 / portTICK_PERIOD_MS);
+    vTaskDelay(1000 / portTICK_PERIOD_MS);
   }
 }
 void TaskPeristaultic()
@@ -180,6 +181,8 @@ void startTasks(){
   taskTemperatureControl.begin(&TaskAquariumTemperatureControl, "TemperatureAquarium", 1300, 2);
   taskWaterPump.begin(&TaskWaterPump, "WaterPump",3000, 3);
   taskSendInfo.begin(&TaskSendSystemInformation, "SendInfo", 5000, 4);
+  taskPeristaultic.begin(&TaskPeristaultic, "Peristautic", 5000, 4);
+  // vTaskStartScheduler();
 }
 
 
@@ -193,6 +196,7 @@ class MyServerCallbacks: public BLEServerCallbacks {
     void onDisconnect(BLEServer* pServer) {
         deviceConnected = false;
         Serial.println("Cliente desconectado");
+        pServer->getAdvertising()->start();
     }
 };
 
@@ -210,6 +214,7 @@ DynamicJsonDocument SetRTC(DynamicJsonDocument *doc){
   struct tm timeinfo;
   localtime_r(&timestamp, &timeinfo);
   clockUTC.setRTC(&timeinfo);
+  return *doc;
 }
 
 DynamicJsonDocument updateConfigurationEndpoint(DynamicJsonDocument *doc)
@@ -273,7 +278,7 @@ DynamicJsonDocument setRoutinesEndpoint(DynamicJsonDocument *doc)
     r.horarios.push_back(h);
   }
   aquariumServices.setRoutines(r);
-  // bleRoutinesGetCharacteristic->notify();
+  bleRoutinesGetCharacteristic->notify();
   return resp;
 }
 
@@ -382,24 +387,40 @@ void startBLE(){
   BLEAdvertising *pAdvertising = BLEDevice::getAdvertising();
   pAdvertising->addServiceUUID(SERVICE_UUID);
   pAdvertising->addServiceUUID(SERVICE_ROUTINES_UUID);
-  pServer->getAdvertising()->start();
+  pAdvertising->setScanResponse(true);
+  pAdvertising->setMinPreferred(0x06);
+
+  pAdvertising->start();
 }
 
 void setup()
 {
   Serial.begin(115200);
-  
+
+  long timestamp = 1725464302;
+  struct tm timeinfo;
+  gmtime_r(&timestamp, &timeinfo);
+  Serial.println("");
+  Serial.println(clockUTC.isRunningClock());
+  delay(1000);
+  try{
+
+    clockUTC.setRTC(&timeinfo);
+    Serial.println(clockUTC.getDateTimeString());
+  }
+  catch (const std::exception& e){
+    Serial.printf("[callback] erro: %s\n", e.what());
+
+  }
+
   aquarium.begin();
   
-  startTasks();
   startBLE();
+  startTasks();
 
 
-  memory.write<bool>(ADDRESS_START, true);
-  while (1)
-  {
-    vTaskDelay(1000 / portTICK_PERIOD_MS);
-  }
+  memory.writeBool(ADDRESS_START, true);
+  Serial.printf("%s",memory.read<bool>(ADDRESS_START) ? "COMECEI" : "NAO COMECEI");
 }
 
 void loop()

@@ -22,17 +22,15 @@ public:
     {
         if (!EEPROM.begin(EEPROM_SIZE))
         {
-            Serial.println("Falha ao inicializar eeprom");
-            return;
+            throw std::runtime_error("Falha ao inicializar eeprom");
         }
-        // char* buffer;
-        // std::ostringstream oss;
-        // oss << data;
-        // std::string str = oss.str();
-        // std::strncpy(buffer, str.c_str(), sizeof(T) - 1);
         
-        EEPROM.put(address, data);
-
+        for (int i = 0; i < sizeof(T); i++)
+        {
+            EEPROM.put(address, data  >> (8 * i) & 0xFF);
+            address++;
+        }
+        
         EEPROM.commit();
     }
 
@@ -47,6 +45,27 @@ public:
         }
         return static_cast<T>(data);
     }
+
+    void writeBool(int address, bool data)
+    {
+        if (!EEPROM.begin(EEPROM_SIZE))
+        {
+            throw std::runtime_error("Falha ao inicializar eeprom");
+        }
+        
+        EEPROM.writeBool(address, data);
+        
+        EEPROM.commit();
+    }
+    bool readBool(int address)
+    {
+        if (!EEPROM.begin(EEPROM_SIZE))
+        {
+            throw std::runtime_error("Falha ao inicializar eeprom");
+        }
+        return EEPROM.readBool(address);
+    }
+
 
     void clear(){
         Serial.println("Limpando...");

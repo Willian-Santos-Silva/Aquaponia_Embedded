@@ -39,9 +39,20 @@ public:
         pinMode(PIN_HEATER, OUTPUT);
         pinMode(PIN_WATER_PUMP, OUTPUT);
         pinMode(PIN_PH, INPUT);
-        pinMode(PIN_TURBIDITY, INPUT);
 
-        if (_memory.read<bool>(ADDRESS_START)){
+        const int pwmChannel = 0; // Canal PWM
+        const int pwmFreq = 5000; // Frequência do PWM em Hz
+        const int pwmResolution = 8; // Resolução do PWM (8 bits -> 0 a 255)
+        ledcSetup(pwmChannel, pwmFreq, pwmResolution);
+    
+        pinMode(PIN_PERISTAULTIC_RAISER, OUTPUT);
+        ledcAttachPin(PIN_PERISTAULTIC_RAISER, pwmChannel);
+
+        pinMode(PIN_PERISTAULTIC_LOWER, OUTPUT);
+        ledcAttachPin(PIN_PERISTAULTIC_LOWER, pwmChannel);
+
+        
+        if (_memory.readBool(ADDRESS_START)){
             Serial.println("Startado");
             return;
         }
@@ -50,49 +61,22 @@ public:
         Serial.printf("\n");
         Serial.printf(setPhAlarm(MIN_AQUARIUM_PH, MAX_AQUARIUM_PH) ? "PH DEFINIDO" : "FALHA AO DEFINIR INTERVALO DE PH");
 
-        // vector<routine> data;
-
-        // UUID uuid;
-        // for(int w = 0; w < 1; w++){
-        //     routine routines;
-        //     uuid.generate();
-        //     strncpy(routines.id,  uuid.toCharArray(), 36);
-        //     routines.id[36] = '\0';
-            
-        //     routines.weekday[0] = w == 0;
-        //     routines.weekday[1] = w == 1;
-        //     routines.weekday[2] = w == 2;
-        //     routines.weekday[3] = w == 3;
-        //     routines.weekday[4] = w == 4;
-        //     routines.weekday[5] = w == 5;
-        //     routines.weekday[6] = w == 6;
-
-        //     const int TEMPO_OXIGENACAO_DEFAULT = 15;
-        //     const int TEMPO_IRRIGACAO_DEFAULT = 15;
-        //     for(int i = 0; i < 1440; i += TEMPO_IRRIGACAO_DEFAULT + TEMPO_OXIGENACAO_DEFAULT){
-        //         horario horario;
-        //         horario.start = i;
-        //         horario.end = i + TEMPO_IRRIGACAO_DEFAULT;
-                
-        //         if(horario.end > 1440)
-        //             break;
-
-        //         routines.horarios.push_back(horario);
-        //     }
-        //     data.push_back(routines);
-        // }
-        // Serial.println("legal");
-        // writeRoutine(data);
-        // Serial.println("escreveu");
-        // data.clear();
+        if (!SPIFFS.begin(true)) {
+            throw std::runtime_error("Falha ao montar o sistema de arquivos SPIFFS");
+        }
+        if(SPIFFS.exists("/rotinas.bin"))
+            SPIFFS.remove("/rotinas.bin");
+        SPIFFS.end();
     }
     void writeRoutine(const vector<routine> &routines)
     {
         if (!SPIFFS.begin(true)) {
             throw std::runtime_error("Falha ao montar o sistema de arquivos SPIFFS");
         }
-        if(SPIFFS.exists("/rotinas.bin"))
+        if(SPIFFS.exists("/rotinas.bin")){
             SPIFFS.remove("/rotinas.bin");
+            SPIFFS.end();
+        }
         
         File file = SPIFFS.open("/rotinas.bin", FILE_WRITE);
         
@@ -113,6 +97,7 @@ public:
             }
         }
         file.close();
+        SPIFFS.end();
     }
 
     vector<routine> readRoutine()
@@ -126,6 +111,8 @@ public:
         File file = SPIFFS.open("/rotinas.bin", FILE_READ);
         if (!file) {
             Serial.println("Arquivo nao existe");
+            
+            SPIFFS.end();
             throw std::runtime_error("Erro ao abrir o arquivo para leitura");
         }
         
@@ -133,29 +120,31 @@ public:
         if (file.read((uint8_t *)&routinesSize, sizeof(routinesSize)) != sizeof(routinesSize)){
             Serial.println("Erro ao ler as rotinas");
             file.close();
-            return vector<routine>();
+            SPIFFS.end();
+            return {};
         }
-        Serial.println(routinesSize);
         
         for (uint32_t i = 0; i < routinesSize; ++i) {
             routine r;
             if (file.read((uint8_t*)r.id, sizeof(r.id)) != sizeof(r.id)) {
                 Serial.println("Erro ao ler o ID da rotina");
                 file.close();
-                return vector<routine>();
+                SPIFFS.end();
+                return {};
             }
 
             if (file.read((uint8_t *)&r.weekday, sizeof(r.weekday)) != sizeof(r.weekday)){
                 Serial.println("Erro ao ler o weekday da rotina");
                 file.close();
-                return vector<routine>();
+                return {};
             }
 
             uint32_t horariosSize;
             if (file.read((uint8_t *)&horariosSize, sizeof(horariosSize)) != sizeof(horariosSize)){
                 Serial.println("Erro ao ler o numero de horarios da rotina");
                 file.close();
-                return vector<routine>();
+                SPIFFS.end();
+                return {};
             }
 
             for (uint32_t j = 0; j < horariosSize; ++j) {
@@ -163,7 +152,7 @@ public:
                 if(file.read((uint8_t *)&h, sizeof(h)) != sizeof(h)){
                     Serial.println("Erro ao ler o horario da rotina");
                     file.close();
-                    return vector<routine>();
+                    return {};
                 }
                 r.horarios.push_back(h);
             }
@@ -172,6 +161,7 @@ public:
         }
         
         file.close();
+        SPIFFS.end();
         return routines;
     }
 
@@ -301,22 +291,31 @@ public:
         digitalWrite(PIN_HEATER, !status);
     }
     
-    void setPeristaulticStatus(int ml, solution solution)
+    void setPeristaulticStatus(double ml, solution solution)
     {
-        int time =  ml / FLUXO_PERISTALTIC_ML_S;
+        //double time =  ml / FLUXO_PERISTALTIC_ML_S;
+        double time =  ml / (100.0 / 60.0);
+
+        Serial.printf((solution != SOLUTION_LOWER) ? "RAISER" : "LOWER");
+        Serial.printf("\r\nML: %lf - Time: %lf\r\n", ml, time);
+
 
         if(solution == SOLUTION_LOWER){
-            digitalWrite(PIN_PERISTAULTIC, true);
-            delay(time * 1000);
-            digitalWrite(PIN_PERISTAULTIC, false);
+            digitalWrite(PIN_PERISTAULTIC_RAISER, false);
+            digitalWrite(PIN_PERISTAULTIC_LOWER, true);
+            vTaskDelay(time * 1000 / portTICK_PERIOD_MS);
+            digitalWrite(PIN_PERISTAULTIC_LOWER, false);
             return;
         }
         if(solution == SOLUTION_RAISER){
-            digitalWrite(PIN_PERISTAULTIC, true);
-            delay(time * 1000);
-            digitalWrite(PIN_PERISTAULTIC, false);
+            digitalWrite(PIN_PERISTAULTIC_LOWER, false);
+            digitalWrite(PIN_PERISTAULTIC_RAISER, true);
+            vTaskDelay(time * 1000 / portTICK_PERIOD_MS);
+            digitalWrite(PIN_PERISTAULTIC_RAISER, false);
+            analogWrite(PIN_PERISTAULTIC_RAISER , 0);
             return;
         }
+        vTaskDelay(10000 / portTICK_PERIOD_MS);
     }
 
     void handlerWaterPump(Date now) {

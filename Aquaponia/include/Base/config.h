@@ -113,7 +113,8 @@ T(em Kelvin)
 #define PIN_HEATER                                            22        // PINO: AQUECEDOR
 #define PIN_WATER_PUMP                                        23        // PINO: BOMBA DE AGUA
 #define PIN_COOLING                                           13        // NÃO IMPLEMENTADO
-#define PIN_PERISTAULTIC                                      18        // NÃO IMPLEMENTADO
+#define PIN_PERISTAULTIC_RAISER                               18        // NÃO IMPLEMENTADO
+#define PIN_PERISTAULTIC_LOWER                                19        // NÃO IMPLEMENTADO
 
 
 

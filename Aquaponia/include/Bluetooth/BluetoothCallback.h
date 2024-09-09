@@ -12,6 +12,8 @@
 #include <BLE2902.h>
 
 
+SemaphoreHandle_t isNotify = xSemaphoreCreateBinary();
+
 class BluetoothCallback : public BLECharacteristicCallbacks 
 {
 private:
@@ -88,27 +90,23 @@ private:
         // Serial.printf("data: %s\r\n", characteristic->getValue().c_str());
     }
 
-    void sendBLE(BLECharacteristic* characteristic, const char* value){
-        size_t dataLength = strlen(value);
-        std::string valueStr(value);
-        
-        if (dataLength <= 0) { return; }
+    void sendBLE(BLECharacteristic* characteristic, const std::string& value){
+        size_t offset = 0;  
+        std::vector<uint8_t> vec(value.begin(), value.end());
+        size_t dataLength = vec.size();
 
-        size_t offset = 0;
-        std::vector<std::string> chunksList;
 
         while (offset < dataLength) {
             size_t chunkSize = std::min(MAX_SIZE, dataLength - offset);
-            chunksList.push_back(valueStr.substr(offset, chunkSize));
+
+            std::string concatenated(vec.begin() + offset, vec.begin() + offset + chunkSize);
+
+            Serial.printf("set: %s\r\n", concatenated.c_str());
+            characteristic->setValue(concatenated);
+            characteristic->notify();
+
             offset += chunkSize;
         }
-
-        for (size_t i = 0; i < chunksList.size(); i++) {
-            characteristic->setValue(chunksList[i].c_str());
-            characteristic->notify();
-            Serial.printf("set: %s\r\n", chunksList[i].c_str());
-        }
-        valueStr.clear();
         
         uint8_t endSignal = 0xFF;
         characteristic->setValue(&endSignal, sizeof(endSignal));
@@ -144,7 +142,7 @@ public:
 };
 
 BluetoothCallback::BluetoothCallback() 
-{
+{xSemaphoreGive(isNotify);
 }
 
 BluetoothCallback::~BluetoothCallback()
@@ -153,6 +151,9 @@ BluetoothCallback::~BluetoothCallback()
 
 void BluetoothCallback::notify(BLECharacteristic* characteristic, const char* value)
 {
-    sendBLE(characteristic, value);
+     if (xSemaphoreTake(isNotify, portMAX_DELAY)) {
+        sendBLE(characteristic, value);
+        xSemaphoreGive(isNotify);
+    }
 }
 #endif
