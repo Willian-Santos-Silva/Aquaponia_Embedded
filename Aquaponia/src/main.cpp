@@ -158,10 +158,14 @@ void TaskWaterPump()
     vTaskDelay(1000 / portTICK_PERIOD_MS);
   }
 }
+SemaphoreHandle_t xSemaphore = NULL;
 void TaskPeristaultic()
 {
   while (true)
   {
+
+    unsigned long start = millis(); // Marca o início
+
     try
     {
       aquariumServices.controlPeristaultic();
@@ -170,6 +174,11 @@ void TaskPeristaultic()
     {
       Serial.printf("[erro] [PERISTAULTIC INFORMATION]: %s\n", e.what());
     }
+
+
+    unsigned long end = millis(); // Marca o fim
+    unsigned long executionTime = end - start;
+    Serial.printf("Tempo de execução: %lu ms\n", executionTime);
 
     vTaskDelay(500 / portTICK_PERIOD_MS);
   }

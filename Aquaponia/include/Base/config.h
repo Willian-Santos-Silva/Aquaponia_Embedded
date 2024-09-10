@@ -26,8 +26,9 @@
 #define DOSAGE_RAISE_SOLUTION_M3_L              13
 
 #define TAXA_DEFASAGEM_SEGURANCA_DKH            0.2
+#define DELTA_MAXIMO_PH                         0.3
 #define AQUARIUM_VOLUME_L                       10
-#define DEFAULT_TIME_DELAY_PH                   24 * 60 * 60 * 1000
+#define DEFAULT_TIME_DELAY_PH                   24 * 60 * 60 // SEGUNDOS
 #define FLUXO_PERISTALTIC_ML_S                  100/60 
 
 #define SERVICE_UUID        "02be3f08-b74b-4038-aaa4-5020d1582eba"
@@ -100,21 +101,20 @@ T(em Kelvin)
 
 
 // INPUTS
-#define PIN_BUTTON_RESET                                      5
 #define PIN_THERMOCOUPLE                                      14        // PINO: SENSOR DE TEMPERATURA 
-#define PIN_PH                                                35        // PINO: SENSOR DE PH
-#define PIN_TURBIDITY                                         34        // PINO: SENSOR DE TURBIDADE
+#define PIN_PH                                                34        // PINO: SENSOR DE PH
+#define PIN_TURBIDITY                                         35        // PINO: SENSOR DE TURBIDADE
 
-#define PIN_CLOCK_CLK                                         4
+#define PIN_CLOCK_CLK                                         15
 #define PIN_CLOCK_DAT                                         2
-#define PIN_CLOCK_RST                                         15
+#define PIN_CLOCK_RST                                         4
 
 // OUTPUTS
 #define PIN_HEATER                                            22        // PINO: AQUECEDOR
 #define PIN_WATER_PUMP                                        23        // PINO: BOMBA DE AGUA
 #define PIN_COOLING                                           13        // NÃO IMPLEMENTADO
-#define PIN_PERISTAULTIC_RAISER                               18        // NÃO IMPLEMENTADO
-#define PIN_PERISTAULTIC_LOWER                                19        // NÃO IMPLEMENTADO
+#define PIN_PERISTAULTIC_RAISER                               26        // NÃO IMPLEMENTADO
+#define PIN_PERISTAULTIC_LOWER                                25        // NÃO IMPLEMENTADO
 
 
 

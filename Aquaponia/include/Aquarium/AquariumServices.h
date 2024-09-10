@@ -17,7 +17,9 @@ private:
     Aquarium* _aquarium;
     Clock clockUTC;
     Memory memory;
-
+    aplicacoes applySolution(const vector<aplicacoes>& aplicacaoList, Aquarium::solution so);
+    aplicacoes applyRiseSolution(const aplicacoes& lastAplicacao, double deltaPh, int acumuladoAplicado);
+    aplicacoes applyLowerSolution(const aplicacoes& lastAplicacao, double deltaPh, int acumuladoAplicado);
 public:
     AquariumServices(Aquarium *aquarium);
     ~AquariumServices();
@@ -48,35 +50,137 @@ DynamicJsonDocument AquariumServices::getSystemInformation()
     doc["rtc"] = clockUTC.getDateTimeString();
     doc["ph"] = _aquarium->getPh();
     doc["ntu"] = _aquarium->getTurbidity();
-    // doc["ip"] = localNetwork.GetIp().c_str();
     doc["status_heater"] = _aquarium->getHeaterStatus();
     doc["status_water_pump"] = _aquarium->getWaterPumpStatus();
-    //remaining_time_irrigation 
     
     return doc;
 }
-void AquariumServices::controlPeristaultic(){
-    int ph = _aquarium->getPh();
-    int goal = _aquarium->getMinPh() + (_aquarium->getMaxPh() - _aquarium->getMinPh()) / 2;
+void AquariumServices::controlPeristaultic() {
+    vector<aplicacoes> aplicacaoList = _aquarium->readAplicacao();
 
-    //memory.write<long>(ADDRESS_LAST_APPLICATION_ACID_BUFFER_PH, DEFAULT_TIME_DELAY_PH);
-
-    //double ml_s = 1.0 / 1000.0;
-    double ml_s = 10.0;
-    if (ph <= _aquarium->getMinPh())
-    {
-      int maxBufferSolutionMl = AQUARIUM_VOLUME_L * (DOSAGE_RAISE_SOLUTION_M3_L / 1000);
-
-      _aquarium->setPeristaulticStatus(ml_s, _aquarium->SOLUTION_RAISER);
+    aplicacoes applyRise = applySolution(aplicacaoList, _aquarium->SOLUTION_RAISER);
+    aplicacoes applyLower = applySolution(aplicacaoList, _aquarium->SOLUTION_LOWER);
+    
+    if(aplicacaoList.size() < 10 & applyRise.ml > 0.0){
+        Serial.printf("Dosagem Raise: %lu", applyRise.ml);
+        aplicacaoList.push_back(applyRise);
+        _aquarium->addAplicacao(aplicacaoList);
     }
 
-    if (ph >= _aquarium->getMaxPh())
-    {
-      int maxAlkalineSolutionMl = AQUARIUM_VOLUME_L * (DOSAGE_LOWER_SOLUTION_M3_L / 1000);
-
-      _aquarium->setPeristaulticStatus(ml_s, _aquarium->SOLUTION_LOWER);
+    if(aplicacaoList.size() < 10 & applyLower.ml > 0.0){
+        Serial.printf("Dosagem Lower: %lu", applyRise.ml);
+        aplicacaoList.push_back(applyLower);
+        _aquarium->addAplicacao(aplicacaoList);
     }
+
 }
+
+aplicacoes AquariumServices::applySolution(const vector<aplicacoes>& aplicacaoList, Aquarium::solution solution) {
+    aplicacoes ultimaAplicacao;
+    aplicacoes primeiraAplicacao;
+
+    struct tm *timeUltimaAplicacao;
+    time_t interval;
+    bool hasLast = false;
+
+
+    double deltaPh;
+    int acumuladoAplicado = 0;
+
+    for (uint32_t i = (aplicacaoList.size() - 1); i >= 0; i--) {
+        aplicacoes aplicacao = aplicacaoList[i];
+
+        if(aplicacao.type != solution)
+            continue;
+        primeiraAplicacao = aplicacaoList[i];
+            
+        if(!hasLast){
+            timeUltimaAplicacao = localtime(&ultimaAplicacao.dataAplicacao);
+            interval = (long)ultimaAplicacao.dataAplicacao - DEFAULT_TIME_DELAY_PH;
+            hasLast = true;
+        }
+
+        if(aplicacao.dataAplicacao < interval)
+            break;
+
+        acumuladoAplicado += aplicacao.ml;
+    }
+
+    deltaPh = primeiraAplicacao.deltaPh + primeiraAplicacao.deltaPh;
+    
+    aplicacoes aplicacao;
+    
+
+    if(solution == _aquarium->SOLUTION_LOWER){
+        aplicacao = applyLowerSolution(ultimaAplicacao, deltaPh, acumuladoAplicado);
+        return aplicacao;
+    }
+
+    if(solution == _aquarium->SOLUTION_RAISER){
+        aplicacao = applyRiseSolution(ultimaAplicacao, deltaPh, acumuladoAplicado);
+        return aplicacao;
+    }
+
+    return aplicacao;
+}
+
+aplicacoes AquariumServices::applyRiseSolution(const aplicacoes& lastAplicacao, double deltaPh, int acumuladoAplicado) {
+    aplicacoes aplicacao;
+    aplicacao.ml = acumuladoAplicado;
+
+    double ml_s = 1.0 / 10.0;
+
+    int initialPh = _aquarium->getPh();
+    int goal = _aquarium->getMinPh() + (_aquarium->getMaxPh() - _aquarium->getMinPh()) / 2;
+    
+    while(acumuladoAplicado < 7){
+        int ph = _aquarium->getPh();
+
+        if (ph >= _aquarium->getMinPh())
+        {
+            break;
+        }
+        int maxBufferSolutionMl = AQUARIUM_VOLUME_L * (DOSAGE_RAISE_SOLUTION_M3_L / 1000);
+        _aquarium->setPeristaulticStatus(ml_s, _aquarium->SOLUTION_RAISER);
+
+        acumuladoAplicado += ml_s;
+        aplicacao.ml += ml_s;
+        vTaskDelay(500 / portTICK_PERIOD_MS);
+        deltaPh = ph - initialPh;
+    }
+    return aplicacao;
+}
+
+aplicacoes AquariumServices::applyLowerSolution(const aplicacoes& lastAplicacao, double deltaPh, int acumuladoAplicado) {
+    aplicacoes aplicacao;
+    aplicacao.ml = acumuladoAplicado;
+
+    double ml_s = 1.0 / 10.0;
+
+    int initialPh = _aquarium->getPh();
+    int goal = _aquarium->getMinPh() + (_aquarium->getMaxPh() - _aquarium->getMinPh()) / 2;
+    
+    while(acumuladoAplicado < 7){
+        int ph = _aquarium->getPh();
+
+        if (ph <= _aquarium->getMaxPh())
+        {
+            break;
+        }
+
+        int maxAlkalineSolutionMl = AQUARIUM_VOLUME_L * (DOSAGE_LOWER_SOLUTION_M3_L / 1000);
+        _aquarium->setPeristaulticStatus(ml_s, _aquarium->SOLUTION_LOWER);
+
+        acumuladoAplicado += ml_s;
+        aplicacao.ml += ml_s;
+        vTaskDelay(500 / portTICK_PERIOD_MS);
+        deltaPh = ph - initialPh;
+    }
+    aplicacao.deltaPh = deltaPh;
+    return aplicacao;
+}
+
+
 DynamicJsonDocument AquariumServices::getConfiguration(){
     DynamicJsonDocument doc(5028);
 

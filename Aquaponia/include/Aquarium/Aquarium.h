@@ -39,18 +39,11 @@ public:
         pinMode(PIN_HEATER, OUTPUT);
         pinMode(PIN_WATER_PUMP, OUTPUT);
         pinMode(PIN_PH, INPUT);
-
-        const int pwmChannel = 0; // Canal PWM
-        const int pwmFreq = 5000; // Frequência do PWM em Hz
-        const int pwmResolution = 8; // Resolução do PWM (8 bits -> 0 a 255)
-        ledcSetup(pwmChannel, pwmFreq, pwmResolution);
-    
         pinMode(PIN_PERISTAULTIC_RAISER, OUTPUT);
-        ledcAttachPin(PIN_PERISTAULTIC_RAISER, pwmChannel);
-
         pinMode(PIN_PERISTAULTIC_LOWER, OUTPUT);
-        ledcAttachPin(PIN_PERISTAULTIC_LOWER, pwmChannel);
-
+    
+        digitalWrite(PIN_PERISTAULTIC_LOWER, HIGH);
+        digitalWrite(PIN_PERISTAULTIC_RAISER, HIGH);
         
         if (_memory.readBool(ADDRESS_START)){
             Serial.println("Startado");
@@ -66,8 +59,98 @@ public:
         }
         if(SPIFFS.exists("/rotinas.bin"))
             SPIFFS.remove("/rotinas.bin");
+
+        if(SPIFFS.exists("/pump.bin"))
+            SPIFFS.remove("/pump.bin");
+
         SPIFFS.end();
     }
+
+    void addAplicacao(const vector<aplicacoes> &aplicacoesList)
+    {
+        if (!SPIFFS.begin(true)) {
+            throw std::runtime_error("Falha ao montar o sistema de arquivos SPIFFS");
+        }
+        if(SPIFFS.exists("/pump.bin")){
+            SPIFFS.remove("/pump.bin");
+            SPIFFS.end();
+        }
+        
+        File file = SPIFFS.open("/pump.bin", FILE_WRITE);
+
+        uint32_t aplicacoesSize = aplicacoesList.size();
+        file.write((uint8_t *)&aplicacoesSize, sizeof(aplicacoesSize));
+
+        for (const auto &aplicacao : aplicacoesList){
+            file.write((uint8_t*)&aplicacao.dataAplicacao, sizeof(aplicacao.dataAplicacao));
+            file.write((uint8_t*)&aplicacao.ml, sizeof(aplicacao.ml));
+            file.write((uint8_t*)&aplicacao.type, sizeof(aplicacao.type));
+            file.write((uint8_t*)&aplicacao.deltaPh, sizeof(aplicacao.deltaPh));
+        }
+
+
+        file.close();
+        SPIFFS.end();
+    }
+
+
+    vector<aplicacoes> readAplicacao()
+    {
+        vector<aplicacoes> aplicacoesList = {};
+
+        if (!SPIFFS.begin(true)) {
+            throw std::runtime_error("Falha ao montar o sistema de arquivos SPIFFS");
+        }
+        
+        File file = SPIFFS.open("/rotinas.bin", FILE_READ);
+        if (!file) {
+            Serial.println("Arquivo nao existe");
+            
+            SPIFFS.end();
+            throw std::runtime_error("Erro ao abrir o arquivo para leitura");
+        }
+        
+        uint32_t aplicacoesSize;
+        if (file.read((uint8_t *)&aplicacoesSize, sizeof(aplicacoesSize)) != sizeof(aplicacoesSize)){
+            Serial.println("Erro ao ler as aplicacoes");
+            file.close();
+            SPIFFS.end();
+            return {};
+        }
+        
+        for (uint32_t i = 0; i < aplicacoesSize; ++i) {
+            aplicacoes aplicacao;
+
+            if (file.read((uint8_t *)&aplicacao.dataAplicacao, sizeof(aplicacao.dataAplicacao)) != sizeof(aplicacao.dataAplicacao)){
+                Serial.println("Erro ao ler o dataAplicacao");
+                file.close();
+                return {};
+            }
+
+            if (file.read((uint8_t *)&aplicacao.ml, sizeof(aplicacao.ml)) != sizeof(aplicacao.ml)){
+                Serial.println("Erro ao ler o ml");
+                file.close();
+                return {};
+            }
+            if (file.read((uint8_t *)&aplicacao.type, sizeof(aplicacao.type)) != sizeof(aplicacao.type)){
+                Serial.println("Erro ao ler o type");
+                file.close();
+                return {};
+            }
+            if (file.read((uint8_t *)&aplicacao.deltaPh, sizeof(aplicacao.deltaPh)) != sizeof(aplicacao.deltaPh)){
+                Serial.println("Erro ao ler o type");
+                file.close();
+                return {};
+            }
+            aplicacoesList.push_back(aplicacao);
+        }
+        
+        file.close();
+        SPIFFS.end();
+        return aplicacoesList;
+    }
+
+
     void writeRoutine(const vector<routine> &routines)
     {
         if (!SPIFFS.begin(true)) {
@@ -294,28 +377,35 @@ public:
     void setPeristaulticStatus(double ml, solution solution)
     {
         //double time =  ml / FLUXO_PERISTALTIC_ML_S;
-        double time =  ml / (100.0 / 60.0);
+        double potencia = 0.2;
+        double fluxo_peristaultic_ml_s = 1.25;
+        double time =  ml / (fluxo_peristaultic_ml_s * potencia);
 
         Serial.printf((solution != SOLUTION_LOWER) ? "RAISER" : "LOWER");
         Serial.printf("\r\nML: %lf - Time: %lf\r\n", ml, time);
 
 
         if(solution == SOLUTION_LOWER){
-            digitalWrite(PIN_PERISTAULTIC_RAISER, false);
-            digitalWrite(PIN_PERISTAULTIC_LOWER, true);
-            vTaskDelay(time * 1000 / portTICK_PERIOD_MS);
-            digitalWrite(PIN_PERISTAULTIC_LOWER, false);
+            Serial.printf("\r\nTime(ms): %lf\r\n", (time * 1000.0));
+            digitalWrite(PIN_PERISTAULTIC_RAISER, HIGH);
+            digitalWrite(PIN_PERISTAULTIC_LOWER, LOW);
+
+            vTaskDelay((time * 1000.0) / portTICK_PERIOD_MS);
+            
+            digitalWrite(PIN_PERISTAULTIC_LOWER, HIGH);
             return;
         }
         if(solution == SOLUTION_RAISER){
-            digitalWrite(PIN_PERISTAULTIC_LOWER, false);
-            digitalWrite(PIN_PERISTAULTIC_RAISER, true);
-            vTaskDelay(time * 1000 / portTICK_PERIOD_MS);
-            digitalWrite(PIN_PERISTAULTIC_RAISER, false);
-            analogWrite(PIN_PERISTAULTIC_RAISER , 0);
+            Serial.printf("\r\nTime(ms): %lf\r\n", (time * 1000.0));
+            digitalWrite(PIN_PERISTAULTIC_LOWER, HIGH);
+            digitalWrite(PIN_PERISTAULTIC_RAISER, LOW);
+            
+
+            vTaskDelay((time * 1000.0) / portTICK_PERIOD_MS);
+            
+            digitalWrite(PIN_PERISTAULTIC_RAISER, HIGH);
             return;
         }
-        vTaskDelay(10000 / portTICK_PERIOD_MS);
     }
 
     void handlerWaterPump(Date now) {
