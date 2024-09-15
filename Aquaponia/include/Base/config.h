@@ -101,20 +101,19 @@ T(em Kelvin)
 
 
 // INPUTS
-#define PIN_THERMOCOUPLE                                      14        // PINO: SENSOR DE TEMPERATURA 
-#define PIN_PH                                                34        // PINO: SENSOR DE PH
-#define PIN_TURBIDITY                                         35        // PINO: SENSOR DE TURBIDADE
+#define PIN_THERMOCOUPLE                                      23        // PINO: SENSOR DE TEMPERATURA 
+#define PIN_PH                                                35        // PINO: SENSOR DE PH
+#define PIN_TURBIDITY                                         34        // PINO: SENSOR DE TURBIDADE
 
 #define PIN_CLOCK_CLK                                         15
 #define PIN_CLOCK_DAT                                         2
 #define PIN_CLOCK_RST                                         4
 
 // OUTPUTS
-#define PIN_HEATER                                            22        // PINO: AQUECEDOR
-#define PIN_WATER_PUMP                                        23        // PINO: BOMBA DE AGUA
-#define PIN_COOLING                                           13        // NÃO IMPLEMENTADO
-#define PIN_PERISTAULTIC_RAISER                               26        // NÃO IMPLEMENTADO
-#define PIN_PERISTAULTIC_LOWER                                25        // NÃO IMPLEMENTADO
+#define PIN_HEATER                                            5        // PINO: AQUECEDOR
+#define PIN_WATER_PUMP                                        19        // PINO: BOMBA DE AGUA
+#define PIN_PERISTAULTIC_RAISER                               13        // NÃO IMPLEMENTADO
+#define PIN_PERISTAULTIC_LOWER                                12        // NÃO IMPLEMENTADO
 
 
 

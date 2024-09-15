@@ -5,34 +5,31 @@
 #include <DS18B20.h>
 #include <vector>
 
-#include "Base/config.h"
-#include "Base/memory.h"
+#include "Aquarium/Routines.h"
+#include "Aquarium/Aplicacoes.h"
+
 #include "Clock/Clock.h"
 #include "Clock/Date.h"
 
-#include "FS.h"
-#include "SPIFFS.h"
-#include "routines.h"
-#include "uuid.h"
+#include "Base/config.h"
+#include "Base/memory.h"
+
+
 using namespace std;
 
 class Aquarium
 {
 private:
     DS18B20 ds;
-    Memory _memory;
+    Memory* _memory;
 
     float _temperature; 
 
 public:
-    enum solution {
-      SOLUTION_LOWER,
-      SOLUTION_RAISER
-    };
-
-    Aquarium() : ds(PIN_THERMOCOUPLE)
+    Aquarium(Memory *memory) : _memory(memory), ds(PIN_THERMOCOUPLE)
     {
     }
+    enum solution { SOLUTION_LOWER, SOLUTION_RAISER };
 
     void begin()
     {
@@ -42,210 +39,17 @@ public:
         pinMode(PIN_PERISTAULTIC_RAISER, OUTPUT);
         pinMode(PIN_PERISTAULTIC_LOWER, OUTPUT);
     
-        digitalWrite(PIN_PERISTAULTIC_LOWER, HIGH);
-        digitalWrite(PIN_PERISTAULTIC_RAISER, HIGH);
-        
-        if (_memory.readBool(ADDRESS_START)){
-            Serial.println("Startado");
-            return;
-        }
+        pinMode(PIN_PERISTAULTIC_RAISER, OUTPUT);
+        pinMode(PIN_PERISTAULTIC_LOWER, OUTPUT);
 
-        Serial.printf(setHeaterAlarm(MIN_AQUARIUM_TEMP, MAX_AQUARIUM_TEMP) ? "TEMPERATURAS DEFINIDAS" : "FALHA AO DEFINIR INTERVALO DE TEMPERATURA");
-        Serial.printf("\n");
-        Serial.printf(setPhAlarm(MIN_AQUARIUM_PH, MAX_AQUARIUM_PH) ? "PH DEFINIDO" : "FALHA AO DEFINIR INTERVALO DE PH");
+        ledcAttachPin(PIN_PERISTAULTIC_RAISER, 0);
+        ledcSetup(0, 1000, 10);
 
-        if (!SPIFFS.begin(true)) {
-            throw std::runtime_error("Falha ao montar o sistema de arquivos SPIFFS");
-        }
-        if(SPIFFS.exists("/rotinas.bin"))
-            SPIFFS.remove("/rotinas.bin");
+        ledcAttachPin(PIN_PERISTAULTIC_LOWER, 1);
+        ledcSetup(1, 1000, 10);
 
-        if(SPIFFS.exists("/pump.bin"))
-            SPIFFS.remove("/pump.bin");
-
-        SPIFFS.end();
-    }
-
-    void addAplicacao(const vector<aplicacoes> &aplicacoesList)
-    {
-        if (!SPIFFS.begin(true)) {
-            throw std::runtime_error("Falha ao montar o sistema de arquivos SPIFFS");
-        }
-        if(SPIFFS.exists("/pump.bin")){
-            SPIFFS.remove("/pump.bin");
-            SPIFFS.end();
-        }
-        
-        File file = SPIFFS.open("/pump.bin", FILE_WRITE);
-
-        uint32_t aplicacoesSize = aplicacoesList.size();
-        file.write((uint8_t *)&aplicacoesSize, sizeof(aplicacoesSize));
-
-        for (const auto &aplicacao : aplicacoesList){
-            file.write((uint8_t*)&aplicacao.dataAplicacao, sizeof(aplicacao.dataAplicacao));
-            file.write((uint8_t*)&aplicacao.ml, sizeof(aplicacao.ml));
-            file.write((uint8_t*)&aplicacao.type, sizeof(aplicacao.type));
-            file.write((uint8_t*)&aplicacao.deltaPh, sizeof(aplicacao.deltaPh));
-        }
-
-
-        file.close();
-        SPIFFS.end();
-    }
-
-
-    vector<aplicacoes> readAplicacao()
-    {
-        vector<aplicacoes> aplicacoesList = {};
-
-        if (!SPIFFS.begin(true)) {
-            throw std::runtime_error("Falha ao montar o sistema de arquivos SPIFFS");
-        }
-        
-        File file = SPIFFS.open("/rotinas.bin", FILE_READ);
-        if (!file) {
-            Serial.println("Arquivo nao existe");
-            
-            SPIFFS.end();
-            throw std::runtime_error("Erro ao abrir o arquivo para leitura");
-        }
-        
-        uint32_t aplicacoesSize;
-        if (file.read((uint8_t *)&aplicacoesSize, sizeof(aplicacoesSize)) != sizeof(aplicacoesSize)){
-            Serial.println("Erro ao ler as aplicacoes");
-            file.close();
-            SPIFFS.end();
-            return {};
-        }
-        
-        for (uint32_t i = 0; i < aplicacoesSize; ++i) {
-            aplicacoes aplicacao;
-
-            if (file.read((uint8_t *)&aplicacao.dataAplicacao, sizeof(aplicacao.dataAplicacao)) != sizeof(aplicacao.dataAplicacao)){
-                Serial.println("Erro ao ler o dataAplicacao");
-                file.close();
-                return {};
-            }
-
-            if (file.read((uint8_t *)&aplicacao.ml, sizeof(aplicacao.ml)) != sizeof(aplicacao.ml)){
-                Serial.println("Erro ao ler o ml");
-                file.close();
-                return {};
-            }
-            if (file.read((uint8_t *)&aplicacao.type, sizeof(aplicacao.type)) != sizeof(aplicacao.type)){
-                Serial.println("Erro ao ler o type");
-                file.close();
-                return {};
-            }
-            if (file.read((uint8_t *)&aplicacao.deltaPh, sizeof(aplicacao.deltaPh)) != sizeof(aplicacao.deltaPh)){
-                Serial.println("Erro ao ler o type");
-                file.close();
-                return {};
-            }
-            aplicacoesList.push_back(aplicacao);
-        }
-        
-        file.close();
-        SPIFFS.end();
-        return aplicacoesList;
-    }
-
-
-    void writeRoutine(const vector<routine> &routines)
-    {
-        if (!SPIFFS.begin(true)) {
-            throw std::runtime_error("Falha ao montar o sistema de arquivos SPIFFS");
-        }
-        if(SPIFFS.exists("/rotinas.bin")){
-            SPIFFS.remove("/rotinas.bin");
-            SPIFFS.end();
-        }
-        
-        File file = SPIFFS.open("/rotinas.bin", FILE_WRITE);
-        
-        uint32_t routinesSize = routines.size();
-        file.write((uint8_t *)&routinesSize, sizeof(routinesSize));
-
-        for (const auto &r : routines) {
-            file.write((uint8_t*)r.id, sizeof(r.id));
-            Serial.printf("\nid: %s\n",r.id);
-            file.write((uint8_t *)r.weekday, sizeof(r.weekday));
-
-
-            uint32_t horariosSize = r.horarios.size();
-            file.write((uint8_t *)&horariosSize, sizeof(horariosSize));
-
-            for (const auto &h : r.horarios) {
-                file.write((uint8_t *)&h, sizeof(h));
-            }
-        }
-        file.close();
-        SPIFFS.end();
-    }
-
-    vector<routine> readRoutine()
-    {
-        vector<routine> routines = {};
-
-        if (!SPIFFS.begin(true)) {
-            throw std::runtime_error("Falha ao montar o sistema de arquivos SPIFFS");
-        }
-        
-        File file = SPIFFS.open("/rotinas.bin", FILE_READ);
-        if (!file) {
-            Serial.println("Arquivo nao existe");
-            
-            SPIFFS.end();
-            throw std::runtime_error("Erro ao abrir o arquivo para leitura");
-        }
-        
-        uint32_t routinesSize;
-        if (file.read((uint8_t *)&routinesSize, sizeof(routinesSize)) != sizeof(routinesSize)){
-            Serial.println("Erro ao ler as rotinas");
-            file.close();
-            SPIFFS.end();
-            return {};
-        }
-        
-        for (uint32_t i = 0; i < routinesSize; ++i) {
-            routine r;
-            if (file.read((uint8_t*)r.id, sizeof(r.id)) != sizeof(r.id)) {
-                Serial.println("Erro ao ler o ID da rotina");
-                file.close();
-                SPIFFS.end();
-                return {};
-            }
-
-            if (file.read((uint8_t *)&r.weekday, sizeof(r.weekday)) != sizeof(r.weekday)){
-                Serial.println("Erro ao ler o weekday da rotina");
-                file.close();
-                return {};
-            }
-
-            uint32_t horariosSize;
-            if (file.read((uint8_t *)&horariosSize, sizeof(horariosSize)) != sizeof(horariosSize)){
-                Serial.println("Erro ao ler o numero de horarios da rotina");
-                file.close();
-                SPIFFS.end();
-                return {};
-            }
-
-            for (uint32_t j = 0; j < horariosSize; ++j) {
-                horario h;
-                if(file.read((uint8_t *)&h, sizeof(h)) != sizeof(h)){
-                    Serial.println("Erro ao ler o horario da rotina");
-                    file.close();
-                    return {};
-                }
-                r.horarios.push_back(h);
-            }
-
-            routines.push_back(r);
-        }
-        
-        file.close();
-        SPIFFS.end();
-        return routines;
+        ledcWrite(0, potencia(0));
+        ledcWrite(1, potencia(0));
     }
 
     void updateTemperature()
@@ -258,6 +62,7 @@ public:
         ds.selectNext();
         _temperature = ds.getTempC();
     }
+    
     float readTemperature()
     {
         return _temperature;
@@ -268,7 +73,7 @@ public:
         unsigned long int avgValue; 
         int buf[10],temp;
         
-        float Vmax = 3.3;
+        float Vmax = 5;
         int Dmax = 4095;
         
         for(int i=0;i<10;i++) 
@@ -299,19 +104,9 @@ public:
         return phValue;
     }
 
-    float getTensao()
-    {
-        float Vmax = 3.3;
-        int Dmax = 4095;
-
-        float phValue = analogRead(PIN_PH);
-    
-        return phValue;
-    }
-
     bool getHeaterStatus()
     {
-        return digitalRead(PIN_HEATER);
+        return !digitalRead(PIN_HEATER);
     }
 
     bool setHeaterAlarm(int tempMin, int tempMax)
@@ -322,8 +117,8 @@ public:
             return false;
         }
 
-        _memory.write<int>(ADDRESS_AQUARIUM_MIN_TEMPERATURE, tempMin);
-        _memory.write<int>(ADDRESS_AQUARIUM_MAX_TEMPERATURE, tempMax);
+        _memory->write<int>(ADDRESS_AQUARIUM_MIN_TEMPERATURE, tempMin);
+        _memory->write<int>(ADDRESS_AQUARIUM_MAX_TEMPERATURE, tempMax);
         
         return getMaxTemperature() == tempMax && getMinTemperature() == tempMin;
     }
@@ -336,39 +131,40 @@ public:
             return false;
         }
 
-        _memory.write<int>(ADDRESS_AQUARIUM_MIN_PH, phMin);
-        _memory.write<int>(ADDRESS_AQUARIUM_MAX_PH, phMax);
+        _memory->write<int>(ADDRESS_AQUARIUM_MIN_PH, phMin);
+        _memory->write<int>(ADDRESS_AQUARIUM_MAX_PH, phMax);
         
         return getMaxPh() == phMax && getMinPh() == phMin;
     }
 
     int getMaxPh()
     {
-        return _memory.read<int>(ADDRESS_AQUARIUM_MAX_PH);
+        return _memory->read<int>(ADDRESS_AQUARIUM_MAX_PH);
     }
     int getMinPh()
     {
-        return _memory.read<int>(ADDRESS_AQUARIUM_MIN_PH);
+        return _memory->read<int>(ADDRESS_AQUARIUM_MIN_PH);
     }
 
     int getMaxTemperature()
     {
-        return _memory.read<int>(ADDRESS_AQUARIUM_MAX_TEMPERATURE);
+        return _memory->read<int>(ADDRESS_AQUARIUM_MAX_TEMPERATURE);
     }
     int getMinTemperature()
     {
-        return _memory.read<int>(ADDRESS_AQUARIUM_MIN_TEMPERATURE);
+        return _memory->read<int>(ADDRESS_AQUARIUM_MIN_TEMPERATURE);
     }
 
     bool getWaterPumpStatus()
     {
-        return digitalRead(PIN_WATER_PUMP);
+        return !digitalRead(PIN_WATER_PUMP);
     }
 
     void setWaterPumpStatus(bool status)
     {
         digitalWrite(PIN_WATER_PUMP, !status);
     }
+    
     void setStatusHeater(bool status)
     {
         digitalWrite(PIN_HEATER, !status);
@@ -408,34 +204,6 @@ public:
         }
     }
 
-    void handlerWaterPump(Date now) {
-        try
-        {
-            vector<routine> rotinas = readRoutine();
-            for (const auto& routine : rotinas) {
-                if(routine.weekday[now.day_of_week]){
-                    for (const auto& h : routine.horarios) {
-                        if((now.hour * 60 + now.minute) >= h.start  && (now.hour * 60 + now.minute) < h.end){
-                            setWaterPumpStatus(HIGH);
-                            return;
-                        }
-                        setWaterPumpStatus(LOW);
-                    }
-                }
-            }
-            rotinas.clear();
-        }
-        catch (const std::exception& e)
-        {
-            String err = e.what();
-            Serial.println("description: " + err);
-        }
-    }
-
-    Date getEndNextTime(){
-
-        return Date();
-    }
 
     bool setPPM(int dosagem)
     {
@@ -445,13 +213,14 @@ public:
             return false;
         }
 
-        _memory.write<int>(ADDRESS_PPM_PH, dosagem);
+        _memory->write<int>(ADDRESS_PPM_PH, dosagem);
         
         return getPPM() == dosagem;
     }
+
     int getPPM()
     {
-        return _memory.read<int>(ADDRESS_PPM_PH);
+        return _memory->read<int>(ADDRESS_PPM_PH);
     }
 
     int getTurbidity()
@@ -466,5 +235,10 @@ public:
             
         return -1120.4 * sqrt(voltagem) + 5742.3 * voltagem - 4353.8;
     }
+
+    int potencia(double percentage){
+        return 1023 * (percentage / 100.0);
+    }
+
 };
 #endif

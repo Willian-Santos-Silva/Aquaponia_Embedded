@@ -1,20 +1,30 @@
-#include "Clock/Date.h"
+#include "Aquarium/Aplicacoes.h"
+#include "Aquarium/Routines.h"
+
+#include "Aquarium/SetupDevice.h"
+#include "Aquarium/Aquarium.h"
+#include "Aquarium/AquariumServices.h"
+
+
 
 #include <time.h>
 
-#include "Aquarium/Aquarium.h"
-#include "Aquarium/Routines.h"
 #include "Clock/Clock.h"
-#include "rtos/TasksManagement.h"
 #include "Base/memory.h"
-#include "Aquarium/AquariumServices.h"
 #include "Base/config.h"
+
+#include "rtos/TasksManagement.h"
+
+
 #include "Bluetooth/BluetoothCallback.h"
 #include "Bluetooth/BluetoothService.h"
 #include <BLEDevice.h>
 #include <BLEServer.h>
 #include <BLEUtils.h>
 #include <BLE2902.h>
+
+
+
 
 BLEServer *pServer = NULL;
 BLEService *pService;
@@ -38,13 +48,15 @@ BluetoothCallback bleConfigurationCallback,
                   bleRoutinesGetCallback,
                   bleRoutinesCreateCallback;
 
-bool deviceConnected = false;
+
 
 Clock clockUTC;
+
 Memory memory;
 
-Aquarium aquarium;
-AquariumServices aquariumServices(&aquarium);
+Aquarium aquarium(&memory);
+SetupDevice aquariumSetupDevice(&aquarium, &memory);
+AquariumServices aquariumServices(&aquarium, &aquariumSetupDevice);
 
 
 using namespace std;
@@ -123,14 +135,19 @@ void TaskAquariumTemperatureControl()
     {
       continue;
     }
+    
     temperature = aquarium.readTemperature();
+    if (temperature == -127.0f)
+    {
+      aquarium.setStatusHeater(LOW);
+      continue;
+    }
+
+    
     float goalTemperature = (aquarium.getMaxTemperature() - aquarium.getMinTemperature()) / 2 + aquarium.getMinTemperature();
     double erro = goalTemperature - temperature;
     integralError += erro;
-    if (temperature == -127.0f)
-    {
-      aquarium.setStatusHeater(false);
-    }
+
     flagTemeperature = temperature;
     output = Kp * erro + Ki * integralError - Kd * (temperature - flagTemeperature);
 
@@ -190,31 +207,29 @@ void startTasks(){
   taskTemperatureControl.begin(&TaskAquariumTemperatureControl, "TemperatureAquarium", 1300, 2);
   taskWaterPump.begin(&TaskWaterPump, "WaterPump",3000, 3);
   taskSendInfo.begin(&TaskSendSystemInformation, "SendInfo", 5000, 4);
-  taskPeristaultic.begin(&TaskPeristaultic, "Peristautic", 5000, 4);
-  // vTaskStartScheduler();
+  // taskPeristaultic.begin(&TaskPeristaultic, "Peristautic", 5000, 4);
 }
 
 
-// Callback para conexão e desconexão
-class MyServerCallbacks: public BLEServerCallbacks {
-    void onConnect(BLEServer* pServer) {
-        deviceConnected = true;
-        Serial.println("Cliente conectado");
-    }
-
-    void onDisconnect(BLEServer* pServer) {
-        deviceConnected = false;
-        Serial.println("Cliente desconectado");
-        pServer->getAdvertising()->start();
-    }
-};
 
 // // ============================================================================================
 // //                                      ENDPOINTS
 // // ============================================================================================
 
-DynamicJsonDocument SetRTC(DynamicJsonDocument *doc){
-  
+
+// Callback para conexão e desconexão
+class MyServerCallbacks: public BLEServerCallbacks {
+    void onConnect(BLEServer* pServer) {
+        Serial.println("Cliente conectado");
+    }
+
+    void onDisconnect(BLEServer* pServer) {
+        Serial.println("Cliente desconectado");
+        pServer->getAdvertising()->start();
+    }
+};
+
+DynamicJsonDocument SetRTC(DynamicJsonDocument *doc) {
   if (!doc->containsKey("rtc"))
   {
     throw std::runtime_error("Parametro fora de escopo");
@@ -406,30 +421,11 @@ void setup()
 {
   Serial.begin(115200);
 
-  long timestamp = 1725464302;
-  struct tm timeinfo;
-  gmtime_r(&timestamp, &timeinfo);
-  Serial.println("");
-  Serial.println(clockUTC.isRunningClock());
-  delay(1000);
-  try{
-
-    clockUTC.setRTC(&timeinfo);
-    Serial.println(clockUTC.getDateTimeString());
-  }
-  catch (const std::exception& e){
-    Serial.printf("[callback] erro: %s\n", e.what());
-
-  }
-
+  aquariumSetupDevice.begin();
   aquarium.begin();
   
   startBLE();
   startTasks();
-
-
-  memory.writeBool(ADDRESS_START, true);
-  Serial.printf("%s",memory.read<bool>(ADDRESS_START) ? "COMECEI" : "NAO COMECEI");
 }
 
 void loop()

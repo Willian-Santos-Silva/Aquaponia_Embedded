@@ -17,10 +17,4 @@ struct routine{
     vector<horario> horarios;
 };
 
-struct aplicacoes{
-    double ml;    
-    time_t dataAplicacao;    
-    bool type;
-    double deltaPh;
-};
 #endif
