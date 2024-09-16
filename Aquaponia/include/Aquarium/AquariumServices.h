@@ -22,8 +22,8 @@ private:
     Clock clockUTC;
 
     aplicacoes applySolution(const vector<aplicacoes>& aplicacaoList, Aquarium::solution so);
-    aplicacoes applyRiseSolution(const aplicacoes& lastAplicacao, double deltaPh, int acumuladoAplicado);
-    aplicacoes applyLowerSolution(const aplicacoes& lastAplicacao, double deltaPh, int acumuladoAplicado);
+    aplicacoes applyRiseSolution(double deltaPh, double acumuladoAplicado);
+    aplicacoes applyLowerSolution(double deltaPh, double acumuladoAplicado);
     void handlerWaterPump(Date now);
     
 public:
@@ -61,20 +61,53 @@ DynamicJsonDocument AquariumServices::getSystemInformation()
     
     return doc;
 }
+
 void AquariumServices::controlPeristaultic() {
     vector<aplicacoes> aplicacaoList = _setupDevice->readAplicacao();
 
-    aplicacoes applyRise = applySolution(aplicacaoList, _aquarium->SOLUTION_RAISER);
+
+    aplicacoes applyRaiser = applySolution(aplicacaoList, _aquarium->SOLUTION_RAISER);
     aplicacoes applyLower = applySolution(aplicacaoList, _aquarium->SOLUTION_LOWER);
     
-    if(aplicacaoList.size() < 10 & applyRise.ml > 0.0){
-        Serial.printf("Dosagem Raise: %lu", applyRise.ml);
-        aplicacaoList.push_back(applyRise);
+    if(aplicacaoList.size() < 10 && applyRaiser.ml > 0.0){
+        Serial.printf("Dosagem Raiser: %lf\r\n\r\n", applyRaiser.ml);
+
+        struct tm *timeinfo = gmtime(&applyRaiser.dataAplicacao);
+    
+        // static char dateTimeStr[30];
+        // snprintf(dateTimeStr, sizeof(dateTimeStr), "%02d/%02d/%04d %02d:%02d:%02d",
+        //     timeinfo->tm_mday, timeinfo->tm_mon + 1, timeinfo->tm_year + 1900,
+        //     timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec);
+
+
+        // Serial.printf("DELTA: %lf\r\n", applyRaiser.deltaPh);
+        // Serial.printf("TYPE: %s\r\n", (applyRaiser.type == Aquarium::SOLUTION_LOWER ? "SOLUTION_LOWER" : "SOLUTION_RAISER"));
+        // Serial.printf("ML: %lf\r\n", applyRaiser.ml);
+        // Serial.printf("DATA: %s\r\n\r\n", dateTimeStr);
+
+
+        aplicacaoList.push_back(applyRaiser);
         _setupDevice->addAplicacao(aplicacaoList);
     }
 
-    if(aplicacaoList.size() < 10 & applyLower.ml > 0.0){
-        Serial.printf("Dosagem Lower: %lu", applyRise.ml);
+    if(aplicacaoList.size() < 10 && applyLower.ml > 0.0){
+        Serial.printf("Dosagem Lower: %lf\r\n\r\n", applyLower.ml);
+
+
+        // struct tm *timeinfo = gmtime(&applyLower.dataAplicacao);
+    
+        // static char dateTimeStr[30];
+        // snprintf(dateTimeStr, sizeof(dateTimeStr), "%02d/%02d/%04d %02d:%02d:%02d",
+        //     timeinfo->tm_mday, timeinfo->tm_mon + 1, timeinfo->tm_year + 1900,
+        //     timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec);
+
+
+        // Serial.printf("DELTA: %lf\r\n", applyLower.deltaPh);
+        // Serial.printf("TYPE: %s\r\n", (applyLower.type == Aquarium::SOLUTION_LOWER ? "SOLUTION_LOWER" : "SOLUTION_RAISER"));
+        // Serial.printf("ML: %lf\r\n", applyLower.ml);
+        // Serial.printf("DATA: %s\r\n\r\n", dateTimeStr);
+
+
         aplicacaoList.push_back(applyLower);
         _setupDevice->addAplicacao(aplicacaoList);
     }
@@ -86,102 +119,103 @@ aplicacoes AquariumServices::applySolution(const vector<aplicacoes>& aplicacaoLi
     aplicacoes primeiraAplicacao;
 
     struct tm *timeUltimaAplicacao;
-    time_t interval;
+    time_t dataProximaAplicacao;
     bool hasLast = false;
 
 
     double deltaPh;
-    int acumuladoAplicado = 0;
+    double acumuladoAplicado = 0;
 
-    for (uint32_t i = (aplicacaoList.size() - 1); i >= 0; i--) {
-        aplicacoes aplicacao = aplicacaoList[i];
+    for (uint32_t i = aplicacaoList.size(); i > 0; i--) {
+        aplicacoes aplicacao = aplicacaoList[i - 1];
 
         if(aplicacao.type != solution)
             continue;
 
-        primeiraAplicacao = aplicacaoList[i];
+        primeiraAplicacao = aplicacaoList[i - 1];
             
         if(!hasLast){
             timeUltimaAplicacao = localtime(&ultimaAplicacao.dataAplicacao);
-            interval = (long)ultimaAplicacao.dataAplicacao - DEFAULT_TIME_DELAY_PH;
+            dataProximaAplicacao = (long)ultimaAplicacao.dataAplicacao + DEFAULT_TIME_DELAY_PH;
             hasLast = true;
         }
 
-        if(aplicacao.dataAplicacao < interval)
+        if(aplicacao.dataAplicacao < dataProximaAplicacao)
             break;
 
         acumuladoAplicado += aplicacao.ml;
     }
-
-    deltaPh = primeiraAplicacao.deltaPh + primeiraAplicacao.deltaPh;
+    deltaPh = primeiraAplicacao.deltaPh + ultimaAplicacao.deltaPh;
     
     aplicacoes aplicacao;
-    
 
-    if(solution == _aquarium->SOLUTION_LOWER){
-        aplicacao = applyLowerSolution(ultimaAplicacao, deltaPh, acumuladoAplicado);
+    if(solution == Aquarium::SOLUTION_LOWER){
+        aplicacao = applyLowerSolution(deltaPh, acumuladoAplicado);
+        aplicacao.type = Aquarium::SOLUTION_LOWER;
         return aplicacao;
     }
 
-    if(solution == _aquarium->SOLUTION_RAISER){
-        aplicacao = applyRiseSolution(ultimaAplicacao, deltaPh, acumuladoAplicado);
+    if(solution == Aquarium::SOLUTION_RAISER){
+        aplicacao = applyRiseSolution(deltaPh, acumuladoAplicado);
+        aplicacao.type = Aquarium::SOLUTION_RAISER;
         return aplicacao;
     }
 
     return aplicacao;
 }
 
-aplicacoes AquariumServices::applyRiseSolution(const aplicacoes& lastAplicacao, double deltaPh, int acumuladoAplicado) {
+aplicacoes AquariumServices::applyRiseSolution(double deltaPh, double acumuladoAplicado) {
     aplicacoes aplicacao;
     aplicacao.ml = acumuladoAplicado;
 
-    double ml_s = 1.0 / 10.0;
+    double ml_s = 1;
 
-    int initialPh = _aquarium->getPh();
+    float initialPh = _aquarium->getPh();
     int goal = _aquarium->getMinPh() + (_aquarium->getMaxPh() - _aquarium->getMinPh()) / 2;
     
-    while(acumuladoAplicado < 7){
-        int ph = _aquarium->getPh();
+    double maxBufferSolutionMl = AQUARIUM_VOLUME_L * (DOSAGE_RAISE_SOLUTION_M3_L / 1000.0);
+    while ((acumuladoAplicado + aplicacao.ml + ml_s) <= maxBufferSolutionMl) {
+        float ph = _aquarium->getPh();
 
         if (ph >= _aquarium->getMinPh())
         {
             break;
         }
-        int maxBufferSolutionMl = AQUARIUM_VOLUME_L * (DOSAGE_RAISE_SOLUTION_M3_L / 1000);
-        _aquarium->setPeristaulticStatus(ml_s, _aquarium->SOLUTION_RAISER);
 
-        acumuladoAplicado += ml_s;
+        _aquarium->setPeristaulticStatus(ml_s, _aquarium->SOLUTION_RAISER);
+        
+
         aplicacao.ml += ml_s;
-        vTaskDelay(10 / portTICK_PERIOD_MS);
         deltaPh = ph - initialPh;
+        vTaskDelay(10 / portTICK_PERIOD_MS);
     }
+
     return aplicacao;
 }
 
-aplicacoes AquariumServices::applyLowerSolution(const aplicacoes& lastAplicacao, double deltaPh, int acumuladoAplicado) {
+aplicacoes AquariumServices::applyLowerSolution(double deltaPh, double acumuladoAplicado) {
     aplicacoes aplicacao;
     aplicacao.ml = acumuladoAplicado;
 
-    double ml_s = 1.0 / 10.0;
+    double ml_s = 1;
 
-    int initialPh = _aquarium->getPh();
+    float initialPh = _aquarium->getPh();
     int goal = _aquarium->getMinPh() + (_aquarium->getMaxPh() - _aquarium->getMinPh()) / 2;
     
-    while(acumuladoAplicado < 7){
-        int ph = _aquarium->getPh();
+    int maxAlkalineSolutionMl = AQUARIUM_VOLUME_L * (DOSAGE_LOWER_SOLUTION_M3_L / 1000);
+    while ((acumuladoAplicado + aplicacao.ml + ml_s) <= maxAlkalineSolutionMl) {
+        float ph = _aquarium->getPh();
 
         if (ph <= _aquarium->getMaxPh())
         {
             break;
         }
 
-        int maxAlkalineSolutionMl = AQUARIUM_VOLUME_L * (DOSAGE_LOWER_SOLUTION_M3_L / 1000);
         _aquarium->setPeristaulticStatus(ml_s, _aquarium->SOLUTION_LOWER);
-
-        acumuladoAplicado += ml_s;
+        
         aplicacao.ml += ml_s;
-        vTaskDelay(10 / portTICK_PERIOD_MS);
         deltaPh = ph - initialPh;
+        vTaskDelay(10 / portTICK_PERIOD_MS);
     }
     aplicacao.deltaPh = deltaPh;
     return aplicacao;
@@ -277,14 +311,6 @@ DynamicJsonDocument AquariumServices::handlerWaterPump() {
     DynamicJsonDocument doc(1000);
 
     vector<routine> rotinas = _setupDevice->readRoutine();
-    if(rotinas.size() == 0){
-        _aquarium->setWaterPumpStatus(LOW);
-        
-        doc["status_pump"] = false;
-        doc["duracao"] = -1;
-        doc["tempo_restante"] = -1;
-        return doc;
-    }
     
     for (const auto& routine : rotinas) {
         tm now = clockUTC.getDateTime();
@@ -298,10 +324,11 @@ DynamicJsonDocument AquariumServices::handlerWaterPump() {
                     doc["tempo_restante"] = (h.end * 60) - (now.tm_hour *120 + now.tm_min * 60 + now.tm_sec);
                     return doc;
                 }
-                _aquarium->setWaterPumpStatus(LOW);
             }
         }
     }
+
+    _aquarium->setWaterPumpStatus(LOW);
     doc["status_pump"] = false;
     doc["duracao"] = -1;
     doc["tempo_restante"] = -1;

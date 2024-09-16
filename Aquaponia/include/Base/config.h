@@ -2,18 +2,11 @@
 #define CONFIGURATION_H
 #include <algorithm>
 // CONTANTES
-#define WIFI_SSID                               "Aquapony"
-#define WIFI_PASSWORD                           "12345678"
-#define LOCAL_WIFI_SSID                         "SUELI"
-#define LOCAL_WIFI_PASSWORD                     "santos1965"
-#define WIFI_MAX_CONNECTIONS                    10
-#define WIFI_DEFAULT_IP                         "192.168.0.4"
-#define WIFI_CHANNEL                            1
-#define SERVER_PORT                             80
-#define SOCKET_URL                              "/ws"
-#define EVENTS_URL                              "/events"
+
+
 #define MAX_SIZE                                static_cast<size_t>(60)
 #define MAX_BUFFER_SIZE  35000
+
 #define MIN_AQUARIUM_TEMP                       23
 #define MAX_AQUARIUM_TEMP                       28
 #define MIN_AQUARIUM_PH                         6
@@ -27,23 +20,30 @@
 
 #define TAXA_DEFASAGEM_SEGURANCA_DKH            0.2
 #define DELTA_MAXIMO_PH                         0.3
+
 #define AQUARIUM_VOLUME_L                       10
 #define DEFAULT_TIME_DELAY_PH                   24 * 60 * 60 // SEGUNDOS
-#define FLUXO_PERISTALTIC_ML_S                  100/60 
 
-#define SERVICE_UUID        "02be3f08-b74b-4038-aaa4-5020d1582eba"
-#define CHARACTERISTIC_WIFI_UUID "6fd27a35-0b8a-40cb-ad23-3f3f6c0d8626"
-#define CHARACTERISTIC_INFO_UUID "eeaaf2ad-5264-47a1-a49f-5b274ab1a0fe"
-#define CHARACTERISTIC_SYSTEM_INFO_UUID "26f8dc2f-213a-4048-a898-07eaf4f2089e"
-#define CHARACTERISTIC_CONFIGURATION_UUID "b371220d-3559-410d-8a47-78b06df6eb3a"
-#define CHARACTERISTIC_RTC_UUID "a5939a1a-0b50-48d0-8d03-fad87790ab4a"
-#define CHARACTERISTIC_PUMP_UUID "da4a95ee-6998-40a6-ad8c-c87087e15ca6"
+#define CHANNEL_SOLUTION_LOWER                  0
+#define CHANNEL_SOLUTION_RAISER                 1
+#define POTENCIA_PERISTAULTIC                   40
+#define FLUXO_PERISTALTIC_ML_S                  1.68
 
-#define SERVICE_ROUTINES_UUID        "bb1db1b1-6696-4bfa-a140-8d5836e980c8"
-#define CHARACTERISTIC_UPDATE_ROUTINES_UUID "4b9c96d4-cf69-45ca-a157-9ac8d0b7b155"
-#define CHARACTERISTIC_GET_ROUTINES_UUID "7dc355e9-6089-4a6f-b22c-f65820cad8c0"
-#define CHARACTERISTIC_DELETE_ROUTINES_UUID "77fb44d3-2e17-4cec-9c22-e9a413c4eea7"
-#define CHARACTERISTIC_CREATE_ROUTINES_UUID "61b86e63-66bc-4b19-b178-5b5e92a67b9d"
+
+
+#define SERVICE_UUID                            "02be3f08-b74b-4038-aaa4-5020d1582eba"
+#define CHARACTERISTIC_WIFI_UUID                "6fd27a35-0b8a-40cb-ad23-3f3f6c0d8626"
+#define CHARACTERISTIC_INFO_UUID                "eeaaf2ad-5264-47a1-a49f-5b274ab1a0fe"
+#define CHARACTERISTIC_SYSTEM_INFO_UUID         "26f8dc2f-213a-4048-a898-07eaf4f2089e"
+#define CHARACTERISTIC_CONFIGURATION_UUID       "b371220d-3559-410d-8a47-78b06df6eb3a"
+#define CHARACTERISTIC_RTC_UUID                 "a5939a1a-0b50-48d0-8d03-fad87790ab4a"
+#define CHARACTERISTIC_PUMP_UUID                "da4a95ee-6998-40a6-ad8c-c87087e15ca6"
+
+#define SERVICE_ROUTINES_UUID                   "bb1db1b1-6696-4bfa-a140-8d5836e980c8"
+#define CHARACTERISTIC_UPDATE_ROUTINES_UUID     "4b9c96d4-cf69-45ca-a157-9ac8d0b7b155"
+#define CHARACTERISTIC_GET_ROUTINES_UUID        "7dc355e9-6089-4a6f-b22c-f65820cad8c0"
+#define CHARACTERISTIC_DELETE_ROUTINES_UUID     "77fb44d3-2e17-4cec-9c22-e9a413c4eea7"
+#define CHARACTERISTIC_CREATE_ROUTINES_UUID     "61b86e63-66bc-4b19-b178-5b5e92a67b9d"
 
 /*
 ==========================================================================================================================================
@@ -101,6 +101,7 @@ T(em Kelvin)
 
 
 // INPUTS
+#define PIN_RESET                                             23        // PINO: SENSOR DE TEMPERATURA 
 #define PIN_THERMOCOUPLE                                      23        // PINO: SENSOR DE TEMPERATURA 
 #define PIN_PH                                                35        // PINO: SENSOR DE PH
 #define PIN_TURBIDITY                                         34        // PINO: SENSOR DE TURBIDADE

@@ -65,7 +65,7 @@ public:
         return *gmtime(&t);
     }
     const char * getDateTimeString()
-    {   
+    {
         time_t t = rtc.getEpoch();
         struct tm *timeinfo = gmtime(&t);
 

@@ -43,8 +43,8 @@ private:
         if (!SPIFFS.begin(true)) {
             throw std::runtime_error("Falha ao montar o sistema de arquivos SPIFFS");
         }
-        if(SPIFFS.exists("/pump.bin")){
-            SPIFFS.remove("/pump.bin");
+        if(SPIFFS.exists(fileFullPath)){
+            SPIFFS.remove(fileFullPath);
             SPIFFS.end();
         }
     }
@@ -55,37 +55,33 @@ public:
     }
     
     void begin(){
-        if (_memory->readBool(ADDRESS_START)){
-            Serial.println("Startado");
-            return;
-        }
+        // if (_memory->readBool(ADDRESS_START)){
+        //     Serial.println("===================");
+        //     Serial.println("STARTADO");
+        //     Serial.println("===================");
+        //     return;
+        // }
 
         Serial.printf(_aquarium->setHeaterAlarm(MIN_AQUARIUM_TEMP, MAX_AQUARIUM_TEMP) ? "TEMPERATURAS DEFINIDAS" : "FALHA AO DEFINIR INTERVALO DE TEMPERATURA");
-        Serial.printf("\n");
+        Serial.printf("\r\n");
         Serial.printf(_aquarium->setPhAlarm(MIN_AQUARIUM_PH, MAX_AQUARIUM_PH) ? "PH DEFINIDO" : "FALHA AO DEFINIR INTERVALO DE PH");
+        Serial.printf("\r\n");
+        Serial.printf(_aquarium->setPPM(1) ? "PPM DEFINIDO" : "FALHA AO DEFINIR PPM");
 
-
-        if (!SPIFFS.begin(true)) {
-            throw std::runtime_error("Falha ao montar o sistema de arquivos SPIFFS");
-        }
-
-        if(SPIFFS.exists("/rotinas.bin"))
-            SPIFFS.remove("/rotinas.bin");
-
-        if(SPIFFS.exists("/pump.bin"))
-            SPIFFS.remove("/pump.bin");
-
-        SPIFFS.end();
+        removeIfExists("/rotinas.bin");
+        removeIfExists("/pump.bin");
 
         _memory->writeBool(ADDRESS_START, true);
+        
     }
 
 
     vector<aplicacoes> readAplicacao()
     {
+        Serial.println("LENDO APLICACOES");
         vector<aplicacoes> aplicacoesList = {};
 
-        File file = open("/rotinas.bin", FILE_READ);
+        File file = open("/pump.bin", FILE_READ);
 
         uint32_t aplicacoesSize;
         if (file.read((uint8_t *)&aplicacoesSize, sizeof(aplicacoesSize)) != sizeof(aplicacoesSize)){
@@ -124,6 +120,20 @@ public:
                 close(file);
                 return {};
             }
+
+            struct tm *timeinfo = gmtime(&aplicacao.dataAplicacao);
+
+            static char dateTimeStr[30];
+            snprintf(dateTimeStr, sizeof(dateTimeStr), "%02d/%02d/%04d %02d:%02d:%02d",
+                timeinfo->tm_mday, timeinfo->tm_mon + 1, timeinfo->tm_year + 1900,
+                timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec);
+
+
+            Serial.printf("DELTA: %lf\r\n", aplicacao.deltaPh);
+            Serial.printf("TYPE: %s\r\n", (aplicacao.type == Aquarium::SOLUTION_LOWER ? "SOLUTION_LOWER" : "SOLUTION_RAISER"));
+            Serial.printf("ML: %lf\r\n", aplicacao.ml);
+            Serial.printf("DATA: %s\r\n\r\n", dateTimeStr);
+
             aplicacoesList.push_back(aplicacao);
         }
         

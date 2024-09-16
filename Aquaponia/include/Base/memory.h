@@ -69,7 +69,13 @@ public:
 
     void clear(){
         Serial.println("Limpando...");
-        for (int i = 0 ; i < EEPROM.length() ; i++) {
+
+        if (!EEPROM.begin(EEPROM_SIZE))
+        {
+            throw std::runtime_error("Falha ao inicializar eeprom");
+        }
+
+        for (int i = 0 ; i < EEPROM.length(); i++) {
             EEPROM.write(i, 0);
         }
         EEPROM.commit();

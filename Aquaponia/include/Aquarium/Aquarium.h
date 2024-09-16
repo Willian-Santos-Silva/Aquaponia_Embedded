@@ -17,13 +17,14 @@
 
 using namespace std;
 
+
 class Aquarium
 {
 private:
     DS18B20 ds;
     Memory* _memory;
 
-    float _temperature; 
+    float _temperature;
 
 public:
     Aquarium(Memory *memory) : _memory(memory), ds(PIN_THERMOCOUPLE)
@@ -33,23 +34,26 @@ public:
 
     void begin()
     {
+        pinMode(PIN_RESET, INPUT_PULLDOWN);
         pinMode(PIN_HEATER, OUTPUT);
         pinMode(PIN_WATER_PUMP, OUTPUT);
+
+        setStatusHeater(LOW);
+        setWaterPumpStatus(LOW);
+
         pinMode(PIN_PH, INPUT);
-        pinMode(PIN_PERISTAULTIC_RAISER, OUTPUT);
-        pinMode(PIN_PERISTAULTIC_LOWER, OUTPUT);
     
         pinMode(PIN_PERISTAULTIC_RAISER, OUTPUT);
         pinMode(PIN_PERISTAULTIC_LOWER, OUTPUT);
 
-        ledcAttachPin(PIN_PERISTAULTIC_RAISER, 0);
-        ledcSetup(0, 1000, 10);
+        ledcAttachPin(PIN_PERISTAULTIC_RAISER, SOLUTION_RAISER);
+        ledcSetup(SOLUTION_RAISER, 1000, 10);
 
-        ledcAttachPin(PIN_PERISTAULTIC_LOWER, 1);
-        ledcSetup(1, 1000, 10);
+        ledcAttachPin(PIN_PERISTAULTIC_LOWER, SOLUTION_LOWER);
+        ledcSetup(SOLUTION_LOWER, 1000, 10);
 
-        ledcWrite(0, potencia(0));
-        ledcWrite(1, potencia(0));
+        ledcWrite(SOLUTION_LOWER, calcPotencia(0));
+        ledcWrite(SOLUTION_RAISER, calcPotencia(0));
     }
 
     void updateTemperature()
@@ -172,34 +176,26 @@ public:
     
     void setPeristaulticStatus(double ml, solution solution)
     {
-        //double time =  ml / FLUXO_PERISTALTIC_ML_S;
-        double potencia = 0.2;
-        double fluxo_peristaultic_ml_s = 1.25;
-        double time =  ml / (fluxo_peristaultic_ml_s * potencia);
-
-        Serial.printf((solution != SOLUTION_LOWER) ? "RAISER" : "LOWER");
-        Serial.printf("\r\nML: %lf - Time: %lf\r\n", ml, time);
-
-
-        if(solution == SOLUTION_LOWER){
-            Serial.printf("\r\nTime(ms): %lf\r\n", (time * 1000.0));
-            digitalWrite(PIN_PERISTAULTIC_RAISER, HIGH);
-            digitalWrite(PIN_PERISTAULTIC_LOWER, LOW);
+        double time =  ml / (FLUXO_PERISTALTIC_ML_S * (POTENCIA_PERISTAULTIC / 100.0));
+        
+        if(solution == SOLUTION_LOWER) {
+            ledcWrite(SOLUTION_RAISER, calcPotencia(0));
+            ledcWrite(SOLUTION_LOWER, calcPotencia(POTENCIA_PERISTAULTIC));
 
             vTaskDelay((time * 1000.0) / portTICK_PERIOD_MS);
             
-            digitalWrite(PIN_PERISTAULTIC_LOWER, HIGH);
+            ledcWrite(SOLUTION_LOWER, calcPotencia(0));
+
             return;
         }
+
         if(solution == SOLUTION_RAISER){
-            Serial.printf("\r\nTime(ms): %lf\r\n", (time * 1000.0));
-            digitalWrite(PIN_PERISTAULTIC_LOWER, HIGH);
-            digitalWrite(PIN_PERISTAULTIC_RAISER, LOW);
-            
+            ledcWrite(SOLUTION_LOWER, calcPotencia(0));
+            ledcWrite(SOLUTION_RAISER, calcPotencia(POTENCIA_PERISTAULTIC));
 
             vTaskDelay((time * 1000.0) / portTICK_PERIOD_MS);
             
-            digitalWrite(PIN_PERISTAULTIC_RAISER, HIGH);
+            ledcWrite(SOLUTION_RAISER, calcPotencia(0));
             return;
         }
     }
@@ -236,7 +232,7 @@ public:
         return -1120.4 * sqrt(voltagem) + 5742.3 * voltagem - 4353.8;
     }
 
-    int potencia(double percentage){
+    int calcPotencia(double percentage){
         return 1023 * (percentage / 100.0);
     }
 

@@ -24,7 +24,7 @@ private:
 
 
     void onWrite(BLECharacteristic* characteristic) {
-        Serial.printf("WRITE:\n");
+        Serial.println("WRITE:");
 
         std::string value = characteristic->getValue();
 
@@ -61,7 +61,7 @@ private:
     }
 
     void onRead(BLECharacteristic* characteristic) {
-        Serial.printf("READ:\n");
+        Serial.println("READ:");
 
         if(!onReadCallback || isReceivingMessage){
             return;
@@ -78,11 +78,11 @@ private:
         {
             uint8_t endSignal = 0xFF;
             characteristic->setValue(&endSignal, sizeof(endSignal));
-            Serial.printf("[read] erro: %s\n", e.what());
+            Serial.printf("[read] erro: %s\r\n", e.what());
         }
     }
     void onNotify(BLECharacteristic* characteristic) {
-        Serial.printf("NOTIFY\n");
+        Serial.printf("NOTIFY\r\n");
         
         if(isReceivingMessage){
             return;

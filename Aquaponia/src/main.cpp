@@ -97,7 +97,7 @@ void TaskSendSystemInformation()
     }
     catch (const std::exception& e)
     {
-        Serial.printf("erro: %s\n", e.what());
+        Serial.printf("erro: %s\r\n", e.what());
     }
 
     vTaskDelay(5000 / portTICK_PERIOD_MS);
@@ -115,7 +115,7 @@ void TaskOneWireControl()
     }
     catch (const std::exception& e)
     {
-        Serial.printf("erro: %s\n", e.what());
+        Serial.printf("erro: %s\r\n", e.what());
     }
 
     vTaskDelay(1000 / portTICK_PERIOD_MS);
@@ -170,7 +170,7 @@ void TaskWaterPump()
     }
     catch (const std::exception& e)
     {
-      Serial.printf("[erro] [WATER INFORMATION]: %s\n", e.what());
+      Serial.printf("[erro] [WATER INFORMATION]: %s\r\n", e.what());
     }
     vTaskDelay(1000 / portTICK_PERIOD_MS);
   }
@@ -180,22 +180,15 @@ void TaskPeristaultic()
 {
   while (true)
   {
-
-    unsigned long start = millis(); // Marca o início
-
     try
     {
       aquariumServices.controlPeristaultic();
+      vTaskDelay(1000 / portTICK_PERIOD_MS);
     }
     catch (const std::exception& e)
     {
-      Serial.printf("[erro] [PERISTAULTIC INFORMATION]: %s\n", e.what());
+      Serial.printf("[erro] [PERISTAULTIC INFORMATION]: %s\r\n", e.what());
     }
-
-
-    unsigned long end = millis(); // Marca o fim
-    unsigned long executionTime = end - start;
-    Serial.printf("Tempo de execução: %lu ms\n", executionTime);
 
     vTaskDelay(500 / portTICK_PERIOD_MS);
   }
@@ -203,11 +196,11 @@ void TaskPeristaultic()
 
 void startTasks(){
   isExecutingOneWire = xSemaphoreCreateBinary();
-  taskOneWire.begin(&TaskOneWireControl, "OneWire", 1000, 1);
-  taskTemperatureControl.begin(&TaskAquariumTemperatureControl, "TemperatureAquarium", 1300, 2);
-  taskWaterPump.begin(&TaskWaterPump, "WaterPump",3000, 3);
-  taskSendInfo.begin(&TaskSendSystemInformation, "SendInfo", 5000, 4);
-  // taskPeristaultic.begin(&TaskPeristaultic, "Peristautic", 5000, 4);
+  // taskOneWire.begin(&TaskOneWireControl, "OneWire", 1000, 1);
+  // taskTemperatureControl.begin(&TaskAquariumTemperatureControl, "TemperatureAquarium", 1300, 2);
+  // taskWaterPump.begin(&TaskWaterPump, "WaterPump",3000, 3);
+  // taskSendInfo.begin(&TaskSendSystemInformation, "SendInfo", 5000, 4);
+  taskPeristaultic.begin(&TaskPeristaultic, "Peristautic", 5000, 4);
 }
 
 
@@ -216,6 +209,11 @@ void startTasks(){
 // //                                      ENDPOINTS
 // // ============================================================================================
 
+void  reset() {
+  Serial.println("Reset");
+  memory.clear();
+  ESP.restart();
+}
 
 // Callback para conexão e desconexão
 class MyServerCallbacks: public BLEServerCallbacks {
@@ -274,7 +272,7 @@ DynamicJsonDocument getRoutinesEndpoint(DynamicJsonDocument *doc)
   }
   catch(const std::exception& e)
   {
-    Serial.printf("[callback] erro: %s\n", e.what());
+    Serial.printf("[callback] erro: %s\r\n", e.what());
     DynamicJsonDocument resp(300);
     return resp;
   }
@@ -421,7 +419,9 @@ void setup()
 {
   Serial.begin(115200);
 
+  
   aquariumSetupDevice.begin();
+  attachInterrupt(PIN_RESET, reset, RISING);
   aquarium.begin();
   
   startBLE();
