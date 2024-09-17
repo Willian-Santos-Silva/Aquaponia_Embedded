@@ -13,16 +13,16 @@
 #define MAX_AQUARIUM_PH                         7
 
 #define TAXA_DEFASAGEM_LOWER_SOLUTION_DKH       0.2
-#define DOSAGE_LOWER_SOLUTION_M3_L              13
+#define DOSAGE_LOWER_SOLUTION_ML_L              2
 
 #define TAXA_DEFASAGEM_RAISE_SOLUTION_DKH       0.2
-#define DOSAGE_RAISE_SOLUTION_M3_L              13
+#define DOSAGE_RAISE_SOLUTION_ML_L              2
 
 #define TAXA_DEFASAGEM_SEGURANCA_DKH            0.2
 #define DELTA_MAXIMO_PH                         0.3
 
 #define AQUARIUM_VOLUME_L                       10
-#define DEFAULT_TIME_DELAY_PH                   24 * 60 * 60 // SEGUNDOS
+#define DEFAULT_TIME_DELAY_PH                   30 // SEGUNDOS
 
 #define CHANNEL_SOLUTION_LOWER                  0
 #define CHANNEL_SOLUTION_RAISER                 1

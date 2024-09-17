@@ -8,7 +8,7 @@ using namespace std;
 struct aplicacoes {
     double ml;    
     time_t dataAplicacao;    
-    char type;
+    int type;
     double deltaPh;
 };
 

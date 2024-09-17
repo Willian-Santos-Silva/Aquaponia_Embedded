@@ -7,6 +7,7 @@
 #include "Aplicacoes.h"
 
 #include "Base/memory.h"
+#include "Clock/Clock.h"
 
 #include "FS.h"
 #include "SPIFFS.h"
@@ -18,6 +19,7 @@ class SetupDevice {
 private:
     Memory* _memory;
     Aquarium *_aquarium;
+    Clock clockUTC;
 
     void close(File file){
         file.close();
@@ -61,6 +63,9 @@ public:
         //     Serial.println("===================");
         //     return;
         // }
+        time_t timestamp = 1726589003;
+        tm * time = gmtime(&timestamp);
+        clockUTC.setRTC(time);
 
         Serial.printf(_aquarium->setHeaterAlarm(MIN_AQUARIUM_TEMP, MAX_AQUARIUM_TEMP) ? "TEMPERATURAS DEFINIDAS" : "FALHA AO DEFINIR INTERVALO DE TEMPERATURA");
         Serial.printf("\r\n");
@@ -121,18 +126,18 @@ public:
                 return {};
             }
 
-            struct tm *timeinfo = gmtime(&aplicacao.dataAplicacao);
+            // struct tm *timeinfo = gmtime(&aplicacao.dataAplicacao);
 
-            static char dateTimeStr[30];
-            snprintf(dateTimeStr, sizeof(dateTimeStr), "%02d/%02d/%04d %02d:%02d:%02d",
-                timeinfo->tm_mday, timeinfo->tm_mon + 1, timeinfo->tm_year + 1900,
-                timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec);
+            // static char dateTimeStr[30];
+            // snprintf(dateTimeStr, sizeof(dateTimeStr), "%02d/%02d/%04d %02d:%02d:%02d",
+            //     timeinfo->tm_mday, timeinfo->tm_mon + 1, timeinfo->tm_year + 1900,
+            //     timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec);
 
 
-            Serial.printf("DELTA: %lf\r\n", aplicacao.deltaPh);
-            Serial.printf("TYPE: %s\r\n", (aplicacao.type == Aquarium::SOLUTION_LOWER ? "SOLUTION_LOWER" : "SOLUTION_RAISER"));
-            Serial.printf("ML: %lf\r\n", aplicacao.ml);
-            Serial.printf("DATA: %s\r\n\r\n", dateTimeStr);
+            // Serial.printf("DELTA: %lf\r\n", aplicacao.deltaPh);
+            // Serial.printf("TYPE: %s\r\n", (aplicacao.type == Aquarium::SOLUTION_LOWER ? "SOLUTION_LOWER" : "SOLUTION_RAISER"));
+            // Serial.printf("ML: %lf\r\n", aplicacao.ml);
+            // Serial.printf("DATA: %s\r\n\r\n", dateTimeStr);
 
             aplicacoesList.push_back(aplicacao);
         }
