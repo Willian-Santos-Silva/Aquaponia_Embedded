@@ -36,6 +36,9 @@ BLECharacteristic *bleConfigurationCharacteristic,
                   *bleRTCCharacteristic,
                   *bleRoutinesUpdateCharacteristic,
                   *bleRoutinesGetCharacteristic,
+                  *bleHistoricoApplyCharacteristic,
+                  *bleHistoricoPhCharacteristic,
+                  *bleHistoricoTempCharacteristic,
                   *bleRoutinesDeleteCharacteristic,
                   *bleRoutinesCreateCharacteristic;
 
@@ -43,6 +46,9 @@ BluetoothCallback bleConfigurationCallback,
                   blePumpCallback,
                   bleSystemInformationCallback,
                   bleRTCCallback,
+                  bleHistoricoPhGetCallback,
+                  bleHistoricoApplyGetCallback,
+                  bleHistoricoTempCallback,
                   bleRoutinesUpdateCallback,
                   bleRoutinesDeleteCallback,
                   bleRoutinesGetCallback,
@@ -196,10 +202,10 @@ void TaskPeristaultic()
 
 void startTasks(){
   isExecutingOneWire = xSemaphoreCreateBinary();
-  // taskOneWire.begin(&TaskOneWireControl, "OneWire", 1000, 1);
-  // taskTemperatureControl.begin(&TaskAquariumTemperatureControl, "TemperatureAquarium", 1300, 2);
-  // taskWaterPump.begin(&TaskWaterPump, "WaterPump",3000, 3);
-  // taskSendInfo.begin(&TaskSendSystemInformation, "SendInfo", 5000, 4);
+  taskOneWire.begin(&TaskOneWireControl, "OneWire", 1000, 1);
+  taskTemperatureControl.begin(&TaskAquariumTemperatureControl, "TemperatureAquarium", 1300, 2);
+  taskWaterPump.begin(&TaskWaterPump, "WaterPump",3000, 3);
+  taskSendInfo.begin(&TaskSendSystemInformation, "SendInfo", 5000, 4);
   taskPeristaultic.begin(&TaskPeristaultic, "Peristautic", 5000, 4);
 }
 
@@ -360,6 +366,18 @@ void startBLE(){
   bleSystemInformationCharacteristic = pService->createCharacteristic(CHARACTERISTIC_INFO_UUID, BLECharacteristic::PROPERTY_NOTIFY);
   bleSystemInformationCharacteristic->setCallbacks(&bleSystemInformationCallback);
   bleSystemInformationCharacteristic->setValue("{}");
+  
+  bleHistoricoApplyCharacteristic = pService->createCharacteristic(CHARACTERISTIC_GET_HIST_APL_UUID, BLECharacteristic::PROPERTY_NOTIFY);
+  bleHistoricoApplyCharacteristic->setCallbacks(&bleHistoricoApplyGetCallback);
+  bleHistoricoApplyCharacteristic->setValue("{}");
+  
+  bleHistoricoTempCharacteristic = pService->createCharacteristic(CHARACTERISTIC_GET_HIST_TEMP_UUID, BLECharacteristic::PROPERTY_NOTIFY);
+  bleHistoricoTempCharacteristic->setCallbacks(&bleHistoricoTempCallback);
+  bleHistoricoTempCharacteristic->setValue("{}");
+  
+  bleHistoricoPhCharacteristic = pService->createCharacteristic(CHARACTERISTIC_GET_HIST_PH_UUID, BLECharacteristic::PROPERTY_NOTIFY);
+  bleHistoricoPhCharacteristic->setCallbacks(&bleHistoricoPhGetCallback);
+  bleHistoricoPhCharacteristic->setValue("{}");
 
 
   bleConfigurationCallback.onWriteCallback = updateConfigurationEndpoint;

@@ -80,78 +80,17 @@ const char* printData(time_t *data) {
 void AquariumServices::controlPeristaultic() {
     vector<aplicacoes> aplicacaoList = _setupDevice->readAplicacao();
 
-
-    // aplicacoes ultimaAplicacao;
-    // aplicacoes primeiraAplicacao;
-
-    // tm *timeUltimaAplicacao;
-    // time_t dataProximaAplicacao;
-    // bool hasLast = false;
-
-
-    // double deltaPh;
-    // double acumuladoAplicado = 0;
-    // Serial.printf("================================= leitura =================================\r\n");
-    // for (uint32_t i = aplicacaoList.size(); i > 0; i--) {
-    //     aplicacoes aplicacao = aplicacaoList[i - 1];
-
-    //     if(aplicacao.type != Aquarium::SOLUTION_LOWER)
-    //         continue;
-
-    //     Serial.printf("TIPO: %s\r\n", aplicacao.type ==  Aquarium::SOLUTION_RAISER ? "RAISER" : "LOWER");    
-    //     Serial.printf("DOSADO: %lf\r\n", aplicacao.ml);
-    //     Serial.printf("DELTA: %lf\r\n", aplicacao.deltaPh);    
-    //     Serial.printf("DATA: %s\r\n\r\n", printData(&aplicacao.dataAplicacao));        
-
-    //     primeiraAplicacao = aplicacao;
-            
-    //     if(!hasLast){
-    //         ultimaAplicacao = aplicacao;
-    //         timeUltimaAplicacao = localtime(&ultimaAplicacao.dataAplicacao);
-    //         hasLast = true;
-    //     }
-
-    //     if((long)ultimaAplicacao.dataAplicacao - (long)aplicacao.dataAplicacao >= DEFAULT_TIME_DELAY_PH)
-    //         break;
-
-    //     acumuladoAplicado += aplicacao.ml;
-    // }
-    // Serial.printf("==================================================================\r\n\r\n");
-    // if(hasLast){
-    //     Serial.printf("DATA ULTIMA: %s\r\n", printData(&ultimaAplicacao.dataAplicacao));
-    //     Serial.printf("DATA PROXIMA: %s\r\n\r\n", printData(&dataProximaAplicacao));
-    // }
-
-
-    // tm now = clockUTC.getDateTime();
-    // tm *nowp = &now;
-    // time_t timestamp = mktime(nowp);
-
-    
-    
-    
-    
-
-    // aplicacoes aplicacao;
-    // aplicacao.dataAplicacao = timestamp;
-    // aplicacao.type = Aquarium::SOLUTION_LOWER;
-    // aplicacao.ml = 10;
-    // aplicacao.deltaPh = 2;
-    // aplicacaoList.push_back(aplicacao);
-    // _setupDevice->addAplicacao(aplicacaoList);
-    // vTaskDelay(10000 / portTICK_PERIOD_MS);
-    // Serial.printf("DATA AGORA: %s\r\n\r\n", printData(&aplicacao.dataAplicacao));
-
-
     aplicacoes applyRaiser = applySolution(aplicacaoList, _aquarium->SOLUTION_RAISER);
     
-    if(applyRaiser.ml > 0.0) {
-        // if(aplicacaoList.size() < 10)
-        //     aplicacaoList;
 
+    if(applyRaiser.ml > 0.0) {
         Serial.printf("Dosagem Raiser: %lf\r\n\r\n", applyRaiser.ml);
 
         aplicacaoList.push_back(applyRaiser);
+
+        if(aplicacaoList.size() > 10)
+            aplicacaoList.erase(aplicacaoList.begin());
+
         _setupDevice->addAplicacao(aplicacaoList);
     }
 
@@ -161,6 +100,10 @@ void AquariumServices::controlPeristaultic() {
         Serial.printf("Dosagem Lower: %lf\r\n\r\n", applyLower.ml);
 
         aplicacaoList.push_back(applyLower);
+        
+        if(aplicacaoList.size() > 10)
+            aplicacaoList.erase(aplicacaoList.begin());
+            
         _setupDevice->addAplicacao(aplicacaoList);
     }
 }
