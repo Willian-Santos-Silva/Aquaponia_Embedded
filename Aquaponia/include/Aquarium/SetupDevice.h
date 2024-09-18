@@ -5,6 +5,7 @@
 #include "Aquarium.h"
 #include "Routines.h"
 #include "Aplicacoes.h"
+#include "Historico.h"
 
 #include "Base/memory.h"
 #include "Clock/Clock.h"
@@ -72,174 +73,96 @@ public:
         Serial.printf(_aquarium->setPhAlarm(MIN_AQUARIUM_PH, MAX_AQUARIUM_PH) ? "PH DEFINIDO" : "FALHA AO DEFINIR INTERVALO DE PH");
         Serial.printf("\r\n");
         Serial.printf(_aquarium->setPPM(1) ? "PPM DEFINIDO" : "FALHA AO DEFINIR PPM");
+        Serial.printf("\r\n\r\n");
 
         removeIfExists("/rotinas.bin");
         removeIfExists("/pump.bin");
+
+        removeIfExists("/histTemp.bin");
+        removeIfExists("/histPh.bin");
+
 
         _memory->writeBool(ADDRESS_START, true);
         
     }
 
-
-    vector<aplicacoes> readAplicacao()
+    template <typename T>
+    void write(const vector<T>& list, const char* fileFullPath)
     {
-        Serial.println("LENDO APLICACOES");
-        vector<aplicacoes> aplicacoesList = {};
+        File file = open(fileFullPath, FILE_WRITE);
 
-        File file = open("/pump.bin", FILE_READ);
+        // uint32_t size = list.size();
+        // file.write((uint8_t *)&size, sizeof(size));
 
-        uint32_t aplicacoesSize;
-        if (file.read((uint8_t *)&aplicacoesSize, sizeof(aplicacoesSize)) != sizeof(aplicacoesSize)){
-            Serial.println("Erro ao ler as aplicacoes");
+        // file.write(reinterpret_cast<uint8_t*>(list.data()), size * sizeof(T));
+
+        size_t tamanho = list.size();
+        file.write(reinterpret_cast<const uint8_t*>(&tamanho), sizeof(tamanho));
+
+        for (const auto& objeto : list) {
+            file.write(reinterpret_cast<const uint8_t*>(&objeto), sizeof(T));
+
+            // Se o objeto contém um vetor, escreva os dados
+            if constexpr (std::is_member_object_pointer<decltype(&T::horarios)>::value) {
+                size_t size = objeto.horarios.size();
+                file.write(reinterpret_cast<const uint8_t*>(&size), sizeof(size));
+                file.write(reinterpret_cast<const uint8_t*>(objeto.horarios.data()), size * sizeof(horario));
+            }
+        }
+
+        close(file);
+    }
+
+
+
+    template <typename T>
+    vector<T> read(const char* fileFullPath)
+    {
+        File file = open(fileFullPath, FILE_READ);
+
+        size_t tamanho;
+        file.read(reinterpret_cast<uint8_t*>(&tamanho), sizeof(tamanho));
+        std::vector<T> objetos(tamanho);
+
+        for (size_t i = 0; i < tamanho; ++i) {
+            T objeto;
+            arquivo.read(reinterpret_cast<uint8_t*>(&objeto), sizeof(T));
+
+            // Se o objeto contém um vetor, leia os dados
+            if constexpr (std::is_member_object_pointer<decltype(&T::horarios)>::value) {
+                size_t size;
+                arquivo.read(reinterpret_cast<uint8_t*>(&size), sizeof(size));
+                objeto.horarios.resize(size);
+                arquivo.read(reinterpret_cast<uint8_t*>(objeto.horarios.data()), size * sizeof(horario));
+            }
+
+            objetos[i] = objeto;
+        }        
+        
+        close(file);
+        return list;
+    }
+
+        // uint32_t size;
+        // if (file.read((uint8_t *)&size, sizeof(size)) != sizeof(size)){
+        //     Serial.printf("Erro ao ler arquivo: %s\r\n\r\n", fileFullPath);
             
-            close(file);
+        //     close(file);
             
-            return {};
-        }
-        
-        for (uint32_t i = 0; i < aplicacoesSize; ++i) {
-            aplicacoes aplicacao;
+        //     return {};
+        // }
+        // Serial.printf("Tamanho: %i\r\n\r\n", size);
 
-            if (file.read((uint8_t *)&aplicacao.dataAplicacao, sizeof(aplicacao.dataAplicacao)) != sizeof(aplicacao.dataAplicacao)){
-                Serial.println("Erro ao ler o dataAplicacao");
-                
-                close(file);
-                return {};
-            }
-
-            if (file.read((uint8_t *)&aplicacao.ml, sizeof(aplicacao.ml)) != sizeof(aplicacao.ml)){
-                Serial.println("Erro ao ler o ml");
-                
-                close(file);
-                return {};
-            }
-            if (file.read((uint8_t *)&aplicacao.type, sizeof(aplicacao.type)) != sizeof(aplicacao.type)){
-                Serial.println("Erro ao ler o type");
-                
-                close(file);
-                return {};
-            }
-            if (file.read((uint8_t *)&aplicacao.deltaPh, sizeof(aplicacao.deltaPh)) != sizeof(aplicacao.deltaPh)){
-                Serial.println("Erro ao ler o type");
-                
-                close(file);
-                return {};
-            }
-
-            // struct tm *timeinfo = gmtime(&aplicacao.dataAplicacao);
-
-            // static char dateTimeStr[30];
-            // snprintf(dateTimeStr, sizeof(dateTimeStr), "%02d/%02d/%04d %02d:%02d:%02d",
-            //     timeinfo->tm_mday, timeinfo->tm_mon + 1, timeinfo->tm_year + 1900,
-            //     timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec);
+        // vector<T> list(size);
+        // file.read(reinterpret_cast<uint8_t*>(list.data()), size * sizeof(T));
+        // // file.read(reinterpret_cast<uint8_t*>(list.data()), size * sizeof(T));
 
 
-            // Serial.printf("DELTA: %lf\r\n", aplicacao.deltaPh);
-            // Serial.printf("TYPE: %s\r\n", (aplicacao.type == Aquarium::SOLUTION_LOWER ? "SOLUTION_LOWER" : "SOLUTION_RAISER"));
-            // Serial.printf("ML: %lf\r\n", aplicacao.ml);
-            // Serial.printf("DATA: %s\r\n\r\n", dateTimeStr);
+        // // const size_t count = file.size(fileFullPath) / sizeof(T);
+        // // Serial.printf("Tamanho: %i\r\n\r\n", size);
 
-            aplicacoesList.push_back(aplicacao);
-        }
-        
-        close(file);
-        
-        return aplicacoesList;
-    }
-
-    void addAplicacao(const vector<aplicacoes> &aplicacoesList)
-    {
-        removeIfExists("/pump.bin");
-        File file = open("/pump.bin", FILE_WRITE);
-
-        uint32_t aplicacoesSize = aplicacoesList.size();
-        file.write((uint8_t *)&aplicacoesSize, sizeof(aplicacoesSize));
-
-        for (const auto &aplicacao : aplicacoesList){
-            file.write((uint8_t*)&aplicacao.dataAplicacao, sizeof(aplicacao.dataAplicacao));
-            file.write((uint8_t*)&aplicacao.ml, sizeof(aplicacao.ml));
-            file.write((uint8_t*)&aplicacao.type, sizeof(aplicacao.type));
-            file.write((uint8_t*)&aplicacao.deltaPh, sizeof(aplicacao.deltaPh));
-        }
-
-        close(file);
-    }
-
-
-    void writeRoutine(const vector<routine> &routines)
-    {
-        removeIfExists("/rotinas.bin");
-        File file = SPIFFS.open("/rotinas.bin", FILE_WRITE);
-        
-        uint32_t routinesSize = routines.size();
-        file.write((uint8_t *)&routinesSize, sizeof(routinesSize));
-
-        for (const auto &r : routines) {
-            file.write((uint8_t*)r.id, sizeof(r.id));
-            file.write((uint8_t *)r.weekday, sizeof(r.weekday));
-
-            uint32_t horariosSize = r.horarios.size();
-            file.write((uint8_t *)&horariosSize, sizeof(horariosSize));
-
-            for (const auto &h : r.horarios) {
-                file.write((uint8_t *)&h, sizeof(h));
-            }
-        }
-
-        close(file);
-    }
-
-    vector<routine> readRoutine()
-    {
-        vector<routine> routines = {};
-
-        File file = open("/rotinas.bin", FILE_READ);
-
-        uint32_t routinesSize;
-        if (file.read((uint8_t *)&routinesSize, sizeof(routinesSize)) != sizeof(routinesSize)){
-            Serial.println("Erro ao ler as rotinas");
-            close(file);
-            return {};
-        }
-        
-        for (uint32_t i = 0; i < routinesSize; ++i) {
-            routine r;
-            if (file.read((uint8_t*)r.id, sizeof(r.id)) != sizeof(r.id)) {
-                Serial.println("Erro ao ler o ID da rotina");
-                close(file);
-                return {};
-            }
-
-            if (file.read((uint8_t *)&r.weekday, sizeof(r.weekday)) != sizeof(r.weekday)){
-                Serial.println("Erro ao ler o weekday da rotina");
-                close(file);
-                return {};
-            }
-
-            uint32_t horariosSize;
-            if (file.read((uint8_t *)&horariosSize, sizeof(horariosSize)) != sizeof(horariosSize)){
-                Serial.println("Erro ao ler o numero de horarios da rotina");
-                close(file);
-                return {};
-            }
-
-            for (uint32_t j = 0; j < horariosSize; ++j) {
-                horario h;
-                if(file.read((uint8_t *)&h, sizeof(h)) != sizeof(h)){
-                    Serial.println("Erro ao ler o horario da rotina");
-                    close(file);
-                    return {};
-                }
-                r.horarios.push_back(h);
-            }
-
-            routines.push_back(r);
-        }
-        
-        close(file);
-
-        return routines;
-    }
+        // // std::vector<T> list(size);
+        // // file.read(reinterpret_cast<uint8_t*>(&list[0]), size * sizeof(T));
 };
 
 #endif

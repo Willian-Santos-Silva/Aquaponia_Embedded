@@ -14,7 +14,10 @@ struct horario{
 struct routine{
     char id[37];
     bool weekday[7];
-    vector<horario> horarios;
+    horario* horarios;
+
+    routine() : horarios(new horario[1440]){} // Construtor para alocar memória
+    ~routine() { delete[] horarios; }
 };
 
 #endif

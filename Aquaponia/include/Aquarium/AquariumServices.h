@@ -32,6 +32,8 @@ public:
 
     void updateConfiguration(int min_temperature, int max_temperature, int ph_min, int ph_max, int dosagem, int tempo_reaplicacao);
     DynamicJsonDocument getSystemInformation();
+    DynamicJsonDocument getHistPh();
+    DynamicJsonDocument getHistTemp();
     DynamicJsonDocument getRoutines();
     DynamicJsonDocument getConfiguration();
     void setRoutines(routine r);
@@ -76,9 +78,46 @@ const char* printData(time_t *data) {
     return dateTimeStr;
 }
 
+time_t tmToTimestamp(tm * time) {
+    return mktime(time); 
+}
+
+
+DynamicJsonDocument AquariumServices::getHistPh(){
+    DynamicJsonDocument doc(5000);
+    JsonArray dataArray = doc.to<JsonArray>();
+
+    vector<historicoPh> list = _setupDevice->read<historicoPh>("/histTemp.bin");
+    for (const auto& data : list) {
+        JsonObject dataObj = dataArray.createNestedObject();
+        dataObj["ph"] = data.ph;
+        dataObj["timestamp"] = data.time;
+    }
+
+    dataArray.clear();
+  
+    return doc;
+}
+
+DynamicJsonDocument AquariumServices::getHistTemp(){
+    DynamicJsonDocument doc(5000);
+    JsonArray dataArray = doc.to<JsonArray>();
+
+    vector<historicoTemperatura> list = _setupDevice->read<historicoTemperatura>("/histPh.bin");
+    for (const auto& data : list) {
+        JsonObject dataObj = dataArray.createNestedObject();
+        dataObj["temperatura"] = data.temperatura;
+        dataObj["timestamp"] = data.time;
+    }
+
+    dataArray.clear();
+  
+    return doc;
+}
+
 
 void AquariumServices::controlPeristaultic() {
-    vector<aplicacoes> aplicacaoList = _setupDevice->readAplicacao();
+    vector<aplicacoes> aplicacaoList = _setupDevice->read<aplicacoes>("/pump.bin");
 
     aplicacoes applyRaiser = applySolution(aplicacaoList, _aquarium->SOLUTION_RAISER);
     
@@ -91,7 +130,7 @@ void AquariumServices::controlPeristaultic() {
         if(aplicacaoList.size() > 10)
             aplicacaoList.erase(aplicacaoList.begin());
 
-        _setupDevice->addAplicacao(aplicacaoList);
+        _setupDevice->write<aplicacoes>(aplicacaoList, "/pump.bin");
     }
 
 
@@ -104,7 +143,7 @@ void AquariumServices::controlPeristaultic() {
         if(aplicacaoList.size() > 10)
             aplicacaoList.erase(aplicacaoList.begin());
             
-        _setupDevice->addAplicacao(aplicacaoList);
+        _setupDevice->write<aplicacoes>(aplicacaoList, "/pump.bin");
     }
 }
 
@@ -119,34 +158,22 @@ aplicacoes AquariumServices::applySolution(const vector<aplicacoes>& aplicacaoLi
 
     double deltaPh;
     double acumuladoAplicado = 0;
-        Serial.print("================================= Dosar ================================= \r\n");
-
 
     tm now = clockUTC.getDateTime();
     tm *nowp = &now;
     time_t timestamp = mktime(nowp); 
-        Serial.printf("DATA: %s\r\n", printData(&timestamp));    
-    // delete nowp;
 
     for (uint32_t i = aplicacaoList.size(); i > 0; i--) {
         aplicacoes aplicacao = aplicacaoList[i - 1];
 
         if(aplicacao.type != solution)
             continue;
-
-        Serial.printf("TIPO: %s\r\n", aplicacao.type ==  Aquarium::SOLUTION_RAISER ? "RAISER" : "LOWER");    
-        Serial.printf("DOSADO: %lf\r\n", aplicacao.ml);
-        Serial.printf("DELTA: %lf\r\n", aplicacao.deltaPh);    
-        Serial.printf("DATA: %s\r\n", printData(&aplicacao.dataAplicacao));    
-
         primeiraAplicacao = aplicacao;
             
         if(!hasLast){
             ultimaAplicacao = aplicacao;
             hasLast = true;
         }
-        Serial.printf("interval: %i\r\n", ((long)ultimaAplicacao.dataAplicacao - (long)aplicacao.dataAplicacao));        
-        Serial.printf("interval: %i\r\n\r\n", ((long)ultimaAplicacao.dataAplicacao - (long)aplicacao.dataAplicacao));        
 
         if((long)ultimaAplicacao.dataAplicacao - (long)aplicacao.dataAplicacao >= DEFAULT_TIME_DELAY_PH
          || ((long)timestamp - (long)ultimaAplicacao.dataAplicacao) >=  DEFAULT_TIME_DELAY_PH)
@@ -155,17 +182,10 @@ aplicacoes AquariumServices::applySolution(const vector<aplicacoes>& aplicacaoLi
         acumuladoAplicado += aplicacao.ml;
     }
 
-    Serial.print("======================================================================= \r\n\r\n");
-
     if(hasLast){
         Serial.printf("DATA ULTIMA: %s\r\n", printData(&ultimaAplicacao.dataAplicacao));
     }
 
-
-    // deltaPh = primeiraAplicacao.deltaPh + ultimaAplicacao.deltaPh;
-    // Serial.printf("Delta: %lf\r\n", deltaPh);
-    Serial.printf("Acumulado: %lf\r\n\r\n", acumuladoAplicado);
-    
     aplicacoes aplicacao;
 
     if(solution == Aquarium::SOLUTION_LOWER){
@@ -196,8 +216,6 @@ aplicacoes AquariumServices::applyRiseSolution(double deltaPh, double acumuladoA
     
     double maxBufferSolutionMl = AQUARIUM_VOLUME_L /   DOSAGE_RAISE_SOLUTION_ML_L;
 
-    Serial.printf("maxBufferSolutionMl: %lf\r\n\r\n", maxBufferSolutionMl);
-
     while ((acumuladoAplicado + aplicacao.ml + ml_s) <= maxBufferSolutionMl) {
         float ph = _aquarium->getPh();
 
@@ -227,8 +245,6 @@ aplicacoes AquariumServices::applyLowerSolution(double deltaPh, double acumulado
     
     double maxAlkalineSolutionMl = AQUARIUM_VOLUME_L / DOSAGE_LOWER_SOLUTION_ML_L;
 
-    Serial.printf("maxAlkalineSolutionMl: %lf\r\n\r\n", maxAlkalineSolutionMl);
-
     while ((acumuladoAplicado + aplicacao.ml + ml_s) <= maxAlkalineSolutionMl) {
         float ph = _aquarium->getPh();
 
@@ -244,9 +260,6 @@ aplicacoes AquariumServices::applyLowerSolution(double deltaPh, double acumulado
         vTaskDelay(10 / portTICK_PERIOD_MS);
     }
     aplicacao.deltaPh = deltaPh;
-
-    Serial.printf("APLICADO: %lf\r\n", aplicacao.ml);
-
 
     return aplicacao;
 }
@@ -268,7 +281,7 @@ DynamicJsonDocument AquariumServices::getRoutines(){
     DynamicJsonDocument doc(35000);
     JsonArray dataArray = doc.to<JsonArray>();
 
-    vector<routine> data = _setupDevice->readRoutine();    
+    vector<routine> data = _setupDevice->read<routine>("/rotinas.bin");    
     for (const auto& r : data) {
         JsonObject rotina = dataArray.createNestedObject();
         rotina["id"] = r.id;
@@ -278,10 +291,10 @@ DynamicJsonDocument AquariumServices::getRoutines(){
         }
 
         JsonArray horarios = rotina.createNestedArray("horarios");
-        for (const auto& h : r.horarios) {
+        for (int i = 0; i < 1440; i++) {
             JsonObject horario = horarios.createNestedObject();
-            horario["start"] = h.start;
-            horario["end"] = h.end;
+            horario["start"] = r.horarios[i].start;
+            horario["end"] = r.horarios[i].end;
         }
     }
 
@@ -291,7 +304,7 @@ DynamicJsonDocument AquariumServices::getRoutines(){
 }
 
 void AquariumServices::setRoutines(routine r){
-    vector<routine> routines = _setupDevice->readRoutine();
+    vector<routine> routines = _setupDevice->read<routine>("/rotinas.bin");
     size_t i = 0;
     bool found = false;
     while (i < routines.size()) {
@@ -303,11 +316,11 @@ void AquariumServices::setRoutines(routine r){
         i++;
     }
     if(found)
-        _setupDevice->writeRoutine(routines);
+        _setupDevice->write<routine>(routines, "/rotinas.bin");
 }
 
 void AquariumServices::removeRoutine(char id[37]){
-    vector<routine> routines = _setupDevice->readRoutine();
+    vector<routine> routines = _setupDevice->read<routine>("/rotinas.bin");
     size_t i = 0;
     bool found = false;
     while (i < routines.size()) {
@@ -319,12 +332,12 @@ void AquariumServices::removeRoutine(char id[37]){
         i++;
     }
     if(found)
-        _setupDevice->writeRoutine(routines);
+        _setupDevice->write<routine>(routines, "/rotinas.bin");
 }
 void AquariumServices::addRoutines(routine r){
-    vector<routine> routines =_setupDevice->readRoutine();
+    vector<routine> routines =_setupDevice->read<routine>("/rotinas.bin");
     routines.push_back(r);
-    _setupDevice->writeRoutine(routines);
+    // _setupDevice->write<routine>(routines, "/rotinas.bin");
 }
 void AquariumServices::updateConfiguration(int min_temperature, int max_temperature, int ph_min, int ph_max, int dosagem, int tempo_reaplicacao){
     if (!_aquarium->setHeaterAlarm(min_temperature, max_temperature))
@@ -340,13 +353,14 @@ void AquariumServices::updateConfiguration(int min_temperature, int max_temperat
 DynamicJsonDocument AquariumServices::handlerWaterPump() {
     DynamicJsonDocument doc(1000);
 
-    vector<routine> rotinas = _setupDevice->readRoutine();
+    vector<routine> rotinas = _setupDevice->read<routine>("/rotinas.bin");
     
     for (const auto& routine : rotinas) {
         tm now = clockUTC.getDateTime();
         
         if(routine.weekday[now.tm_wday]){
-            for (const auto& h : routine.horarios) {
+            for (int i = 0; i < 1440; i++) {
+                horario h = routine.horarios[i];
                 if((now.tm_hour * 60 + now.tm_min) >= h.start  && (now.tm_hour * 60 + now.tm_min) < h.end){
                     _aquarium->setWaterPumpStatus(HIGH);
                     doc["status_pump"] = true;
@@ -369,10 +383,11 @@ DynamicJsonDocument AquariumServices::handlerWaterPump() {
 void AquariumServices::handlerWaterPump(Date now) {
     try
     {
-        vector<routine> rotinas = _setupDevice->readRoutine();
+        vector<routine> rotinas = _setupDevice->read<routine>("/rotinas.bin");
         for (const auto& routine : rotinas) {
             if(routine.weekday[now.day_of_week]){
-                for (const auto& h : routine.horarios) {
+                for (int i = 0; i < 1440; i++) {
+                    horario h = routine.horarios[i];
                     if((now.hour * 60 + now.minute) >= h.start  && (now.hour * 60 + now.minute) < h.end){
                         _aquarium->setWaterPumpStatus(HIGH);
                         return;

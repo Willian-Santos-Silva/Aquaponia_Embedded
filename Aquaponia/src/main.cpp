@@ -78,7 +78,43 @@ TaskWrapper taskWaterPump;
 TaskWrapper taskOneWire;
 TaskWrapper taskScanWiFiDevices;
 TaskWrapper taskPeristaultic;
+TaskWrapper taskSaveLeitura;
 SemaphoreHandle_t isExecutingOneWire;
+
+void TaskSaveLeitura(){
+  while(true){
+    // try {
+    //   vector<historicoTemperatura> lht = aquariumSetupDevice.read<historicoTemperatura>("/histTemp.bin");
+
+    //   if(lht.size() >= 168)
+    //       lht.erase(lht.begin());
+
+    //   historicoTemperatura ht;
+    //   ht.temperatura = aquarium.readTemperature();
+    //   ht.time = clockUTC.getTimestamp();
+    //   aquariumSetupDevice.write<historicoTemperatura>(lht, "/histTemp.bin");
+
+
+    //   vector<historicoPh> lhph = aquariumSetupDevice.read<historicoPh>("/histTemp.bin");
+
+    //   if(lhph.size() >- 168)
+    //       lhph.erase(lhph.begin());
+
+    //   historicoPh hph;
+    //   hph.ph = aquarium.getPh();
+    //   hph.time = clockUTC.getTimestamp();
+
+    //   lhph.push_back(hph);
+
+    //   aquariumSetupDevice.write<historicoPh>(lhph, "/histPh.bin");
+    // }
+    // catch (const std::exception& e)
+    // {
+    //     Serial.printf("erro: %s\r\n", e.what());
+    // }
+    vTaskDelay(3600000 / portTICK_PERIOD_MS);
+  }
+}
 
 
 void TaskSendSystemInformation()
@@ -202,11 +238,12 @@ void TaskPeristaultic()
 
 void startTasks(){
   isExecutingOneWire = xSemaphoreCreateBinary();
-  taskOneWire.begin(&TaskOneWireControl, "OneWire", 1000, 1);
   taskTemperatureControl.begin(&TaskAquariumTemperatureControl, "TemperatureAquarium", 1300, 2);
   taskWaterPump.begin(&TaskWaterPump, "WaterPump",3000, 3);
   taskSendInfo.begin(&TaskSendSystemInformation, "SendInfo", 5000, 4);
-  taskPeristaultic.begin(&TaskPeristaultic, "Peristautic", 5000, 4);
+  taskPeristaultic.begin(&TaskPeristaultic, "Peristautic", 5000, 1);
+  taskOneWire.begin(&TaskOneWireControl, "OneWire", 1000, 2);
+  taskSaveLeitura.begin(&TaskSaveLeitura, "SaveTemperatura", 5000, 3);
 }
 
 
@@ -233,6 +270,56 @@ class MyServerCallbacks: public BLEServerCallbacks {
     }
 };
 
+
+DynamicJsonDocument getHistPhEndpoint(DynamicJsonDocument *doc)
+{
+  try {
+    Serial.println("[LOG] GET PH");
+    return aquariumServices.getHistPh();
+  }
+  catch(const std::exception& e)
+  {
+    Serial.printf("[callback] erro: %s\r\n", e.what());
+    DynamicJsonDocument resp(300);
+    return resp;
+  }
+
+}
+
+
+DynamicJsonDocument getHistApplyEndpoint(DynamicJsonDocument *doc)
+{
+  try {
+    Serial.println("[LOG] GET APPLY");
+    return aquariumServices.getHistPh();
+  }
+  catch(const std::exception& e)
+  {
+    Serial.printf("[callback] erro: %s\r\n", e.what());
+    DynamicJsonDocument resp(300);
+    return resp;
+  }
+
+}
+
+
+DynamicJsonDocument getHistTempEndpoint(DynamicJsonDocument *doc)
+{
+  try {
+    Serial.println("[LOG] GET TEMPERATURA");
+    return aquariumServices.getHistTemp();
+  }
+  catch(const std::exception& e)
+  {
+    Serial.printf("[callback] erro: %s\r\n", e.what());
+    DynamicJsonDocument resp(300);
+    return resp;
+  }
+
+}
+
+
+
 DynamicJsonDocument SetRTC(DynamicJsonDocument *doc) {
   if (!doc->containsKey("rtc"))
   {
@@ -244,6 +331,7 @@ DynamicJsonDocument SetRTC(DynamicJsonDocument *doc) {
   clockUTC.setRTC(&timeinfo);
   return *doc;
 }
+
 
 DynamicJsonDocument updateConfigurationEndpoint(DynamicJsonDocument *doc)
 {
@@ -299,11 +387,14 @@ DynamicJsonDocument setRoutinesEndpoint(DynamicJsonDocument *doc)
   for (int i = 0; i < 7; i++) {
     r.weekday[i] = jsonWeekday[i];
   }
+
+  uint16_t i = 0;
   for (JsonObject jsonHorario : jsonRoutine["horarios"].as<JsonArray>()) {
     horario h;
     h.start = jsonHorario["start"];
     h.end = jsonHorario["end"];
-    r.horarios.push_back(h);
+    r.horarios[i] = h;
+    i++;
   }
   aquariumServices.setRoutines(r);
   bleRoutinesGetCharacteristic->notify();
@@ -327,11 +418,13 @@ DynamicJsonDocument createRoutinesEndpoint(DynamicJsonDocument *doc)
       r.weekday[i] = jsonWeekday[i];
   }
 
+  uint16_t i = 0;
   for (JsonObject jsonHorario : jsonRoutine["horarios"].as<JsonArray>()) {
       horario h;
       h.start = jsonHorario["start"];
       h.end = jsonHorario["end"];
-      r.horarios.push_back(h);
+      r.horarios[i] = h;
+      i++;
   }
   aquariumServices.addRoutines(r);
   return resp;
@@ -367,14 +460,16 @@ void startBLE(){
   bleSystemInformationCharacteristic->setCallbacks(&bleSystemInformationCallback);
   bleSystemInformationCharacteristic->setValue("{}");
   
-  bleHistoricoApplyCharacteristic = pService->createCharacteristic(CHARACTERISTIC_GET_HIST_APL_UUID, BLECharacteristic::PROPERTY_NOTIFY);
-  bleHistoricoApplyCharacteristic->setCallbacks(&bleHistoricoApplyGetCallback);
-  bleHistoricoApplyCharacteristic->setValue("{}");
+  // bleHistoricoApplyCharacteristic = pService->createCharacteristic(CHARACTERISTIC_GET_HIST_APL_UUID, BLECharacteristic::PROPERTY_NOTIFY);
+  // bleHistoricoApplyCharacteristic->setCallbacks(&bleHistoricoApplyGetCallback);
+  // bleHistoricoApplyCharacteristic->setValue("{}");
   
+  bleHistoricoTempCallback.onReadCallback = getHistTempEndpoint;
   bleHistoricoTempCharacteristic = pService->createCharacteristic(CHARACTERISTIC_GET_HIST_TEMP_UUID, BLECharacteristic::PROPERTY_NOTIFY);
   bleHistoricoTempCharacteristic->setCallbacks(&bleHistoricoTempCallback);
   bleHistoricoTempCharacteristic->setValue("{}");
   
+  bleHistoricoPhGetCallback.onReadCallback = getHistPhEndpoint;
   bleHistoricoPhCharacteristic = pService->createCharacteristic(CHARACTERISTIC_GET_HIST_PH_UUID, BLECharacteristic::PROPERTY_NOTIFY);
   bleHistoricoPhCharacteristic->setCallbacks(&bleHistoricoPhGetCallback);
   bleHistoricoPhCharacteristic->setValue("{}");
@@ -442,8 +537,65 @@ void setup()
   attachInterrupt(PIN_RESET, reset, RISING);
   aquarium.begin();
   
-  startBLE();
-  startTasks();
+  horario hh;
+  hh.start = 0;
+  hh.end = 1390;
+
+  vector<routine> l;
+  routine rr;
+  rr.weekday[0] = true;
+  rr.weekday[1] = true;
+  rr.weekday[2] = true;
+  rr.weekday[3] = true;
+  rr.weekday[4] = true;
+  rr.weekday[5] = true;
+  rr.weekday[6] = true;
+
+  strncpy(rr.id, "82495886-50a2-4336-9b1d-c00ed78c8978", 36);
+  rr.id[36] = '\0';
+  
+
+  rr.horarios[0] = hh;
+
+  l.push_back(rr);
+  aquariumSetupDevice.write<routine>(l, "/rotinas.bin");
+
+
+
+  DynamicJsonDocument doc(35000);
+  JsonArray dataArray = doc.to<JsonArray>();
+
+  vector<routine> data = aquariumSetupDevice.read<routine>("/rotinas.bin");    
+  for (const auto& r : data) {
+      JsonObject rotina = dataArray.createNestedObject();
+      rotina["id"] = r.id;
+      JsonArray weekdays = rotina.createNestedArray("WeekDays");
+      for (size_t i = 0; i < sizeof(r.weekday) / sizeof(r.weekday[0]); ++i) {
+          weekdays.add(r.weekday[i]);
+      }
+
+      JsonArray horarios = rotina.createNestedArray("horarios");
+      for (const auto& h : r.horarios) {
+          JsonObject horario = horarios.createNestedObject();
+          horario["start"] = h.start;
+          horario["end"] = h.end;
+      }
+  }
+
+  data.clear();
+
+
+  std::string dataStr;
+  serializeJson(doc, dataStr);
+
+  doc.clear();
+
+  Serial.println(dataStr.c_str());
+
+  // startBLE();
+  // startTasks();
+
+
 }
 
 void loop()

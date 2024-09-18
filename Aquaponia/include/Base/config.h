@@ -104,7 +104,7 @@ T(em Kelvin)
 
 
 // INPUTS
-#define PIN_RESET                                             23        // PINO: SENSOR DE TEMPERATURA 
+#define PIN_RESET                                             22        // PINO: SENSOR DE TEMPERATURA 
 #define PIN_THERMOCOUPLE                                      23        // PINO: SENSOR DE TEMPERATURA 
 #define PIN_PH                                                35        // PINO: SENSOR DE PH
 #define PIN_TURBIDITY                                         34        // PINO: SENSOR DE TURBIDADE
@@ -135,7 +135,6 @@ T(em Kelvin)
 #define ADDRESS_PPM_PH                                        0x000021
 #define ADDRESS_LAST_APPLICATION_ACID_BUFFER_PH               0x000025
 #define ADDRESS_CYCLE_TIME_WATER_PUMP                         0x000029
-#define SIZE_ROUTINES                                         4000U
 
 
 

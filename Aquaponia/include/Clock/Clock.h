@@ -76,6 +76,11 @@ public:
         return dateTimeStr;
                     
     }
+    time_t getTimestamp()
+    {
+        return rtc.getEpoch();
+                    
+    }
 };
 
 #endif

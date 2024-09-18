@@ -7,12 +7,12 @@ using namespace std;
 
 struct historicoPh {
     double ph;    
-    time_t data;
+    time_t time;
 };
 
 struct historicoTemperatura {
     double temperatura;    
-    time_t data;
+    time_t time;
 };
 
 #endif
