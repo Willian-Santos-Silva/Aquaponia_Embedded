@@ -87,14 +87,14 @@ public:
     }
 
     template <typename T>
-    void write(const vector<T>& list, const char* fileFullPath)
+    void write(vector<T>& list, const char* fileFullPath)
     {
         File file = open(fileFullPath, FILE_WRITE);
 
         uint32_t size = list.size();
         file.write((uint8_t *)&size, sizeof(size));
 
-        file.write(reinterpret_cast<const uint8_t*>(&list[0]), size * sizeof(T));
+        file.write(reinterpret_cast<uint8_t*>(&list[0]), size * sizeof(T));
 
         close(file);
     }
@@ -114,36 +114,16 @@ public:
             
             return {};
         }
+        
         Serial.printf("Tamanho: %i\r\n\r\n", size);
 
         vector<T> list(size);
-        file.read(reinterpret_cast<const uint8_t*>(&list[0]), size * sizeof(T));
-        // // file.read(reinterpret_cast<uint8_t*>(list.data()), size * sizeof(T));
+        
+        file.read(reinterpret_cast<uint8_t*>(&list[0]), size * sizeof(T));
         
         close(file);
         return list;
     }
-
-        // uint32_t size;
-        // if (file.read((uint8_t *)&size, sizeof(size)) != sizeof(size)){
-        //     Serial.printf("Erro ao ler arquivo: %s\r\n\r\n", fileFullPath);
-            
-        //     close(file);
-            
-        //     return {};
-        // }
-        // Serial.printf("Tamanho: %i\r\n\r\n", size);
-
-        // vector<T> list(size);
-        // file.read(reinterpret_cast<uint8_t*>(list.data()), size * sizeof(T));
-        // // file.read(reinterpret_cast<uint8_t*>(list.data()), size * sizeof(T));
-
-
-        // // const size_t count = file.size(fileFullPath) / sizeof(T);
-        // // Serial.printf("Tamanho: %i\r\n\r\n", size);
-
-        // // std::vector<T> list(size);
-        // // file.read(reinterpret_cast<uint8_t*>(&list[0]), size * sizeof(T));
 };
 
 #endif

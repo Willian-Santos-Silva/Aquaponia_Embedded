@@ -555,7 +555,9 @@ void setup()
   rr.id[36] = '\0';
   
 
-  rr.horarios[0] = hh;
+  // rr.horarios[0] = hh;
+  // rr.horarios.resize(720);
+  rr.horarios.push_back(hh);
 
   l.push_back(rr);
   aquariumSetupDevice.write<routine>(l, "/rotinas.bin");
@@ -565,8 +567,8 @@ void setup()
   DynamicJsonDocument doc(35000);
   JsonArray dataArray = doc.to<JsonArray>();
 
-  // vector<routine> data = aquariumSetupDevice.read<routine>("/rotinas.bin");    
-  for (const auto& r : l) {
+  vector<routine> data = aquariumSetupDevice.read<routine>("/rotinas.bin");
+  for (const auto& r : data) {
       JsonObject rotina = dataArray.createNestedObject();
       rotina["id"] = r.id;
       JsonArray weekdays = rotina.createNestedArray("WeekDays");
@@ -575,9 +577,9 @@ void setup()
       }
 
       JsonArray horarios = rotina.createNestedArray("horarios");
-      for (int i = 0; i < 1440; i++) {
+      for (const auto& h : r.horarios) {
           JsonObject jhorario = horarios.createNestedObject();
-          horario h = r.horarios[i];
+          // horario h = r.horarios[i];
           jhorario["start"] = h.start;
           jhorario["end"] = h.end;
       }
@@ -592,11 +594,12 @@ void setup()
   doc.clear();
 
   Serial.println(dataStr.c_str());
-
+  dataStr.clear();
   // startBLE();
   // startTasks();
-
-
+  while(true){
+    vTaskDelay(100 / portTICK_PERIOD_MS);
+  }
 }
 
 void loop()

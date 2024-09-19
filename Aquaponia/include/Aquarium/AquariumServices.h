@@ -291,10 +291,10 @@ DynamicJsonDocument AquariumServices::getRoutines(){
         }
 
         JsonArray horarios = rotina.createNestedArray("horarios");
-        for (int i = 0; i < 1440; i++) {
+        for (const auto& h : r.horarios) {
             JsonObject horario = horarios.createNestedObject();
-            horario["start"] = r.horarios[i].start;
-            horario["end"] = r.horarios[i].end;
+            horario["start"] = h.start;
+            horario["end"] = h.end;
         }
     }
 
@@ -355,12 +355,11 @@ DynamicJsonDocument AquariumServices::handlerWaterPump() {
 
     vector<routine> rotinas = _setupDevice->read<routine>("/rotinas.bin");
     
-    for (const auto& routine : rotinas) {
+    for (const auto& r : rotinas) {
         tm now = clockUTC.getDateTime();
         
-        if(routine.weekday[now.tm_wday]){
-            for (int i = 0; i < 1440; i++) {
-                horario h = routine.horarios[i];
+        if(r.weekday[now.tm_wday]){
+            for (const auto& h : r.horarios) {
                 if((now.tm_hour * 60 + now.tm_min) >= h.start  && (now.tm_hour * 60 + now.tm_min) < h.end){
                     _aquarium->setWaterPumpStatus(HIGH);
                     doc["status_pump"] = true;
@@ -384,10 +383,9 @@ void AquariumServices::handlerWaterPump(Date now) {
     try
     {
         vector<routine> rotinas = _setupDevice->read<routine>("/rotinas.bin");
-        for (const auto& routine : rotinas) {
-            if(routine.weekday[now.day_of_week]){
-                for (int i = 0; i < 1440; i++) {
-                    horario h = routine.horarios[i];
+        for (const auto& r : rotinas) {
+            if(r.weekday[now.day_of_week]){
+                for (const auto& h : r.horarios) {
                     if((now.hour * 60 + now.minute) >= h.start  && (now.hour * 60 + now.minute) < h.end){
                         _aquarium->setWaterPumpStatus(HIGH);
                         return;
