@@ -565,8 +565,8 @@ void setup()
   DynamicJsonDocument doc(35000);
   JsonArray dataArray = doc.to<JsonArray>();
 
-  vector<routine> data = aquariumSetupDevice.read<routine>("/rotinas.bin");    
-  for (const auto& r : data) {
+  // vector<routine> data = aquariumSetupDevice.read<routine>("/rotinas.bin");    
+  for (const auto& r : l) {
       JsonObject rotina = dataArray.createNestedObject();
       rotina["id"] = r.id;
       JsonArray weekdays = rotina.createNestedArray("WeekDays");
@@ -575,14 +575,15 @@ void setup()
       }
 
       JsonArray horarios = rotina.createNestedArray("horarios");
-      for (const auto& h : r.horarios) {
-          JsonObject horario = horarios.createNestedObject();
-          horario["start"] = h.start;
-          horario["end"] = h.end;
+      for (int i = 0; i < 1440; i++) {
+          JsonObject jhorario = horarios.createNestedObject();
+          horario h = r.horarios[i];
+          jhorario["start"] = h.start;
+          jhorario["end"] = h.end;
       }
   }
 
-  data.clear();
+  // data.clear();
 
 
   std::string dataStr;

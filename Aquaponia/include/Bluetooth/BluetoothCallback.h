@@ -1,7 +1,8 @@
 #ifndef BLUETOOTH_CALLBACK
 #define BLUETOOTH_CALLBACK
 
-#include <AsyncJson.h>
+// #include <AsyncJson.h>
+#include <ArduinoJson.h>
 #include "config.h"
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>

@@ -91,24 +91,10 @@ public:
     {
         File file = open(fileFullPath, FILE_WRITE);
 
-        // uint32_t size = list.size();
-        // file.write((uint8_t *)&size, sizeof(size));
+        uint32_t size = list.size();
+        file.write((uint8_t *)&size, sizeof(size));
 
-        // file.write(reinterpret_cast<uint8_t*>(list.data()), size * sizeof(T));
-
-        size_t tamanho = list.size();
-        file.write(reinterpret_cast<const uint8_t*>(&tamanho), sizeof(tamanho));
-
-        for (const auto& objeto : list) {
-            file.write(reinterpret_cast<const uint8_t*>(&objeto), sizeof(T));
-
-            // Se o objeto contém um vetor, escreva os dados
-            if constexpr (std::is_member_object_pointer<decltype(&T::horarios)>::value) {
-                size_t size = objeto.horarios.size();
-                file.write(reinterpret_cast<const uint8_t*>(&size), sizeof(size));
-                file.write(reinterpret_cast<const uint8_t*>(objeto.horarios.data()), size * sizeof(horario));
-            }
-        }
+        file.write(reinterpret_cast<const uint8_t*>(&list[0]), size * sizeof(T));
 
         close(file);
     }
@@ -120,24 +106,19 @@ public:
     {
         File file = open(fileFullPath, FILE_READ);
 
-        size_t tamanho;
-        file.read(reinterpret_cast<uint8_t*>(&tamanho), sizeof(tamanho));
-        std::vector<T> objetos(tamanho);
+        uint32_t size;
+        if (file.read((uint8_t *)&size, sizeof(size)) != sizeof(size)){
+            Serial.printf("Erro ao ler arquivo: %s\r\n\r\n", fileFullPath);
+            
+            close(file);
+            
+            return {};
+        }
+        Serial.printf("Tamanho: %i\r\n\r\n", size);
 
-        for (size_t i = 0; i < tamanho; ++i) {
-            T objeto;
-            arquivo.read(reinterpret_cast<uint8_t*>(&objeto), sizeof(T));
-
-            // Se o objeto contém um vetor, leia os dados
-            if constexpr (std::is_member_object_pointer<decltype(&T::horarios)>::value) {
-                size_t size;
-                arquivo.read(reinterpret_cast<uint8_t*>(&size), sizeof(size));
-                objeto.horarios.resize(size);
-                arquivo.read(reinterpret_cast<uint8_t*>(objeto.horarios.data()), size * sizeof(horario));
-            }
-
-            objetos[i] = objeto;
-        }        
+        vector<T> list(size);
+        file.read(reinterpret_cast<const uint8_t*>(&list[0]), size * sizeof(T));
+        // // file.read(reinterpret_cast<uint8_t*>(list.data()), size * sizeof(T));
         
         close(file);
         return list;
