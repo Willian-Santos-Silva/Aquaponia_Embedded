@@ -541,25 +541,28 @@ void setup()
   hh.start = 0;
   hh.end = 1390;
 
-  vector<routine> l;
-  routine rr;
-  rr.weekday[0] = true;
-  rr.weekday[1] = true;
-  rr.weekday[2] = true;
-  rr.weekday[3] = true;
-  rr.weekday[4] = true;
-  rr.weekday[5] = true;
-  rr.weekday[6] = true;
-
-  strncpy(rr.id, "82495886-50a2-4336-9b1d-c00ed78c8978", 36);
-  rr.id[36] = '\0';
+  vector<routine> l(7);
   
+  for (const auto& r : l) {
+    routine rr;
+    rr.weekday[0] = true;
+    rr.weekday[1] = true;
+    rr.weekday[2] = true;
+    rr.weekday[3] = true;
+    rr.weekday[4] = true;
+    rr.weekday[5] = true;
+    rr.weekday[6] = true;
 
-  // rr.horarios[0] = hh;
-  // rr.horarios.resize(720);
-  rr.horarios.push_back(hh);
+    strncpy(rr.id, "82495886-50a2-4336-9b1d-c00ed78c8978", 36);
+    rr.id[36] = '\0';
+    
 
-  l.push_back(rr);
+    // rr.horarios[0] = hh;
+    rr.horarios.resize(720);
+    // rr.horarios.push_back(hh);
+
+    l.push_back(rr);
+  }
   aquariumSetupDevice.write<routine>(l, "/rotinas.bin");
 
 
@@ -593,7 +596,7 @@ void setup()
 
   doc.clear();
 
-  Serial.println(dataStr.c_str());
+  // Serial.println(dataStr.c_str());
   dataStr.clear();
   // startBLE();
   // startTasks();
