@@ -238,12 +238,12 @@ void TaskPeristaultic()
 
 void startTasks(){
   isExecutingOneWire = xSemaphoreCreateBinary();
-  // taskTemperatureControl.begin(&TaskAquariumTemperatureControl, "TemperatureAquarium", 1300, 2);
-  // taskWaterPump.begin(&TaskWaterPump, "WaterPump",3000, 3);
-  // taskSendInfo.begin(&TaskSendSystemInformation, "SendInfo", 5000, 4);
-  // taskPeristaultic.begin(&TaskPeristaultic, "Peristautic", 5000, 1);
-  // taskOneWire.begin(&TaskOneWireControl, "OneWire", 1000, 2);
-  // taskSaveLeitura.begin(&TaskSaveLeitura, "SaveTemperatura", 5000, 3);
+  taskTemperatureControl.begin(&TaskAquariumTemperatureControl, "TemperatureAquarium", 1300, 2);
+  taskWaterPump.begin(&TaskWaterPump, "WaterPump",3000, 3);
+  taskSendInfo.begin(&TaskSendSystemInformation, "SendInfo", 5000, 4);
+  taskPeristaultic.begin(&TaskPeristaultic, "Peristautic", 5000, 1);
+  taskOneWire.begin(&TaskOneWireControl, "OneWire", 1000, 2);
+  taskSaveLeitura.begin(&TaskSaveLeitura, "SaveTemperatura", 5000, 3);
 }
 
 
@@ -549,27 +549,21 @@ void setup()
 
 
 
-  vector<routine> l(1);
-
-  // JsonDocument  docR = routineVectorToJSON(l);
-  aquariumSetupDevice.write<routine>(l, "/rotinas.bin");
-  // aquariumSetupDevice.write(&docR, "/rotinas.bin");
+  // vector<routine> l(7);
+  // aquariumSetupDevice.write<routine>(l, "/rotinas.bin");
   // l.clear();
-
-  // vector<routine> ls = aquariumSetupDevice.read<routine>("/rotinas.bin");
-  // printRotinas(ls);
-  // ls.clear();
-  // JsonDocument  docRst = aquariumSetupDevice.readJSON("/rotinas.bin");
   
   // vector<historicoTemperatura> lht(168);
   // aquariumSetupDevice.write<historicoTemperatura>(lht, "/histTemp.bin");
-
+  // lht.clear();
+  
   // vector<historicoPh> lhph(168);
   // aquariumSetupDevice.write<historicoPh>(lhph, "/histPh.bin");
+  // lhph.clear(); 
 
 
   startBLE();
-  // startTasks();
+  startTasks();
   
   while(true){
     vTaskDelay(100 / portTICK_PERIOD_MS);

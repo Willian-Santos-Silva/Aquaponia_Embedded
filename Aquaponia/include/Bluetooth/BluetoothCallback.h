@@ -69,10 +69,8 @@ private:
             JsonDocument  respDoc = onReadCallback(&oldValue);
             oldValue.clear();
 
-            Serial.printf("%s", trySerialize(&respDoc));
             notify(characteristic, trySerialize(&respDoc));
             respDoc.clear();
-            // Serial.printf("Enviou");
         }
         catch (const std::exception& e)
         {

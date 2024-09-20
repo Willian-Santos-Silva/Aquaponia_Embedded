@@ -21,7 +21,6 @@ JsonDocument  routineVectorToJSON(vector<routine> & data) {
   
   for (const auto& r : data) {
       JsonObject rotina = dataArray.add<JsonObject>();
-      // printRotina(r);
       rotina["id"] = r.id;
 
       for (size_t i = 0; i < sizeof(r.weekday) / sizeof(r.weekday[0]); ++i) {
