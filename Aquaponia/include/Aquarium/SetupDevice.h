@@ -18,11 +18,11 @@
 
 class SetupDevice {
 private:
-    Memory* _memory;
+    Memory _memory;
     Aquarium *_aquarium;
     Clock clockUTC;
 
-    void close(File file){
+    void close(File &file){
         file.close();
         SPIFFS.end();
     }
@@ -36,7 +36,7 @@ private:
         if (!file) {
             Serial.println("Arquivo nao existe");
             
-            SPIFFS.end();
+            // SPIFFS.end();
             throw std::runtime_error("Erro ao abrir o arquivo para leitura");
         }
         return file;
@@ -48,22 +48,22 @@ private:
         }
         if(SPIFFS.exists(fileFullPath)){
             SPIFFS.remove(fileFullPath);
-            SPIFFS.end();
+            // SPIFFS.end();
         }
     }
 
 public:
-    SetupDevice(Aquarium *aquarium, Memory* memory) : _aquarium(aquarium), _memory(memory) {
+    SetupDevice(Aquarium *aquarium) : _aquarium(aquarium) {
 
     }
     
     void begin(){
-        // if (_memory->readBool(ADDRESS_START)){
-        //     Serial.println("===================");
-        //     Serial.println("STARTADO");
-        //     Serial.println("===================");
-        //     return;
-        // }
+        if (_memory.readBool(ADDRESS_START)){
+            Serial.println("===================");
+            Serial.println("STARTADO");
+            Serial.println("===================");
+            return;
+        }
         time_t timestamp = 1726589003;
         tm * time = gmtime(&timestamp);
         clockUTC.setRTC(time);
@@ -82,13 +82,15 @@ public:
         removeIfExists("/histPh.bin");
 
 
-        _memory->writeBool(ADDRESS_START, true);
+        _memory.writeBool(ADDRESS_START, true);
         
     }
 
     template <typename T>
     void write(vector<T>& list, const char* fileFullPath)
     {
+        removeIfExists(fileFullPath);
+
         File file = open(fileFullPath, FILE_WRITE);
 
         uint32_t size = list.size();
@@ -114,7 +116,7 @@ public:
             
             return {};
         }
-        
+
         Serial.printf("Tamanho: %i\r\n\r\n", size);
 
         vector<T> list(size);
@@ -122,6 +124,7 @@ public:
         file.read(reinterpret_cast<uint8_t*>(&list[0]), size * sizeof(T));
         
         close(file);
+        
         return list;
     }
 };

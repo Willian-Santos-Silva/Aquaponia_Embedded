@@ -25,8 +25,6 @@ private:
 
 
     void onWrite(BLECharacteristic* characteristic) {
-        Serial.println("WRITE:");
-
         std::string value = characteristic->getValue();
 
         if(static_cast<unsigned char>(value.back()) != 0xFF){
@@ -40,7 +38,6 @@ private:
         }
         
         isReceivingMessage = false;
-        Serial.println("end");
         
         if(!onWriteCallback) return;
 
@@ -52,6 +49,7 @@ private:
             docRequest.clear();
             
             responseData = trySerialize(&response);
+            response.clear();
         }
         catch (const std::exception& e)
         {
@@ -62,8 +60,6 @@ private:
     }
 
     void onRead(BLECharacteristic* characteristic) {
-        Serial.println("READ:");
-
         if(!onReadCallback || isReceivingMessage){
             return;
         }
@@ -72,8 +68,10 @@ private:
             DynamicJsonDocument oldValue = tryDesserialize("{}");
             DynamicJsonDocument respDoc = onReadCallback(&oldValue);
             oldValue.clear();
-
-            sendBLE(characteristic, trySerialize(&respDoc));
+            // Serial.printf("%s", trySerialize(&respDoc));
+            notify(characteristic, trySerialize(&respDoc));
+            respDoc.clear();
+             Serial.printf("Enviou");
         }
         catch (const std::exception& e)
         {
@@ -83,8 +81,6 @@ private:
         }
     }
     void onNotify(BLECharacteristic* characteristic) {
-        Serial.printf("NOTIFY\r\n");
-        
         if(isReceivingMessage){
             return;
         }

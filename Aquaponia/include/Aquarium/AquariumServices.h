@@ -18,7 +18,6 @@ class AquariumServices
 {
 private:
     Aquarium* _aquarium;
-    SetupDevice* _setupDevice;
     Clock clockUTC;
 
     aplicacoes applySolution(const vector<aplicacoes>& aplicacaoList, Aquarium::solution so);
@@ -27,7 +26,7 @@ private:
     void handlerWaterPump(Date now);
     
 public:
-    AquariumServices(Aquarium *aquarium, SetupDevice* setupDevice);
+    AquariumServices(Aquarium *aquarium);
     ~AquariumServices();
 
     void updateConfiguration(int min_temperature, int max_temperature, int ph_min, int ph_max, int dosagem, int tempo_reaplicacao);
@@ -36,14 +35,14 @@ public:
     DynamicJsonDocument getHistTemp();
     DynamicJsonDocument getRoutines();
     DynamicJsonDocument getConfiguration();
-    void setRoutines(routine r);
-    void addRoutines(routine r);
+    void setRoutines(routine& r);
+    void addRoutines(routine& r);
     void removeRoutine(char id[36]);
     void controlPeristaultic();
     DynamicJsonDocument handlerWaterPump();
 };
 
-AquariumServices::AquariumServices(Aquarium *aquarium, SetupDevice* setupDevice) : _aquarium(aquarium), _setupDevice(setupDevice)
+AquariumServices::AquariumServices(Aquarium *aquarium) : _aquarium(aquarium)
 {
 }
 
@@ -87,7 +86,8 @@ DynamicJsonDocument AquariumServices::getHistPh(){
     DynamicJsonDocument doc(5000);
     JsonArray dataArray = doc.to<JsonArray>();
 
-    vector<historicoPh> list = _setupDevice->read<historicoPh>("/histTemp.bin");
+    SetupDevice _setupDevice(_aquarium);
+    vector<historicoPh> list = _setupDevice.read<historicoPh>("/histTemp.bin");
     for (const auto& data : list) {
         JsonObject dataObj = dataArray.createNestedObject();
         dataObj["ph"] = data.ph;
@@ -103,7 +103,8 @@ DynamicJsonDocument AquariumServices::getHistTemp(){
     DynamicJsonDocument doc(5000);
     JsonArray dataArray = doc.to<JsonArray>();
 
-    vector<historicoTemperatura> list = _setupDevice->read<historicoTemperatura>("/histPh.bin");
+    SetupDevice _setupDevice(_aquarium);
+    vector<historicoTemperatura> list = _setupDevice.read<historicoTemperatura>("/histPh.bin");
     for (const auto& data : list) {
         JsonObject dataObj = dataArray.createNestedObject();
         dataObj["temperatura"] = data.temperatura;
@@ -117,7 +118,8 @@ DynamicJsonDocument AquariumServices::getHistTemp(){
 
 
 void AquariumServices::controlPeristaultic() {
-    vector<aplicacoes> aplicacaoList = _setupDevice->read<aplicacoes>("/pump.bin");
+    SetupDevice _setupDevice(_aquarium);
+    vector<aplicacoes> aplicacaoList = _setupDevice.read<aplicacoes>("/pump.bin");
 
     aplicacoes applyRaiser = applySolution(aplicacaoList, _aquarium->SOLUTION_RAISER);
     
@@ -130,7 +132,7 @@ void AquariumServices::controlPeristaultic() {
         if(aplicacaoList.size() > 10)
             aplicacaoList.erase(aplicacaoList.begin());
 
-        _setupDevice->write<aplicacoes>(aplicacaoList, "/pump.bin");
+        _setupDevice.write<aplicacoes>(aplicacaoList, "/pump.bin");
     }
 
 
@@ -143,7 +145,8 @@ void AquariumServices::controlPeristaultic() {
         if(aplicacaoList.size() > 10)
             aplicacaoList.erase(aplicacaoList.begin());
             
-        _setupDevice->write<aplicacoes>(aplicacaoList, "/pump.bin");
+    SetupDevice _setupDevice(_aquarium);
+        _setupDevice.write<aplicacoes>(aplicacaoList, "/pump.bin");
     }
 }
 
@@ -277,11 +280,30 @@ DynamicJsonDocument AquariumServices::getConfiguration(){
 
     return doc;
 }
-DynamicJsonDocument AquariumServices::getRoutines(){
-    DynamicJsonDocument doc(35000);
-    JsonArray dataArray = doc.to<JsonArray>();
 
-    vector<routine> data = _setupDevice->read<routine>("/rotinas.bin");    
+void printRotinas(vector<routine> &data){    
+    for (const auto& r : data) {
+        Serial.printf("%s\r\n",r.id);
+        for (size_t i = 0; i < sizeof(r.weekday) / sizeof(r.weekday[0]); ++i) {
+            Serial.printf("%d",r.weekday[i]);
+        }
+            Serial.printf("\r\n");
+
+        for (int i = 0; i < 720; i++) {
+            horario h = r.horarios[i];
+            Serial.println(String(h.start) + " - " + String(h.end));
+        }
+        Serial.printf("\r\n\r\n");
+    }
+}
+
+DynamicJsonDocument AquariumServices::getRoutines(){
+    SetupDevice _setupDevice(_aquarium);
+    vector<routine> data = _setupDevice.read<routine>("/rotinas.bin");
+    
+
+    DynamicJsonDocument doc(40000);
+    JsonArray dataArray = doc.to<JsonArray>();
     for (const auto& r : data) {
         JsonObject rotina = dataArray.createNestedObject();
         rotina["id"] = r.id;
@@ -291,7 +313,12 @@ DynamicJsonDocument AquariumServices::getRoutines(){
         }
 
         JsonArray horarios = rotina.createNestedArray("horarios");
-        for (const auto& h : r.horarios) {
+        for (int i = 0; i < 720; i++) {
+            horario h = r.horarios[i];
+
+            if(h.start == 1441 || h.end == 1441)
+                continue;
+
             JsonObject horario = horarios.createNestedObject();
             horario["start"] = h.start;
             horario["end"] = h.end;
@@ -303,8 +330,9 @@ DynamicJsonDocument AquariumServices::getRoutines(){
     return doc;
 }
 
-void AquariumServices::setRoutines(routine r){
-    vector<routine> routines = _setupDevice->read<routine>("/rotinas.bin");
+void AquariumServices::setRoutines(routine& r){
+    SetupDevice _setupDevice(_aquarium);
+    vector<routine> routines = _setupDevice.read<routine>("/rotinas.bin");
     size_t i = 0;
     bool found = false;
     while (i < routines.size()) {
@@ -316,11 +344,12 @@ void AquariumServices::setRoutines(routine r){
         i++;
     }
     if(found)
-        _setupDevice->write<routine>(routines, "/rotinas.bin");
+        _setupDevice.write<routine>(routines, "/rotinas.bin");
 }
 
 void AquariumServices::removeRoutine(char id[37]){
-    vector<routine> routines = _setupDevice->read<routine>("/rotinas.bin");
+    SetupDevice _setupDevice(_aquarium);
+    vector<routine> routines = _setupDevice.read<routine>("/rotinas.bin");
     size_t i = 0;
     bool found = false;
     while (i < routines.size()) {
@@ -332,12 +361,16 @@ void AquariumServices::removeRoutine(char id[37]){
         i++;
     }
     if(found)
-        _setupDevice->write<routine>(routines, "/rotinas.bin");
+        _setupDevice.write<routine>(routines, "/rotinas.bin");
 }
-void AquariumServices::addRoutines(routine r){
-    vector<routine> routines =_setupDevice->read<routine>("/rotinas.bin");
-    routines.push_back(r);
-    // _setupDevice->write<routine>(routines, "/rotinas.bin");
+void AquariumServices::addRoutines(routine& r){
+    SetupDevice _setupDevice(_aquarium);
+    vector<routine> data = _setupDevice.read<routine>("/rotinas.bin");
+
+    data.push_back(r);
+    _setupDevice.write<routine>(data, "/rotinas.bin");
+
+    data.clear();
 }
 void AquariumServices::updateConfiguration(int min_temperature, int max_temperature, int ph_min, int ph_max, int dosagem, int tempo_reaplicacao){
     if (!_aquarium->setHeaterAlarm(min_temperature, max_temperature))
@@ -353,13 +386,19 @@ void AquariumServices::updateConfiguration(int min_temperature, int max_temperat
 DynamicJsonDocument AquariumServices::handlerWaterPump() {
     DynamicJsonDocument doc(1000);
 
-    vector<routine> rotinas = _setupDevice->read<routine>("/rotinas.bin");
+    SetupDevice _setupDevice(_aquarium);
+    vector<routine> rotinas = _setupDevice.read<routine>("/rotinas.bin");
     
     for (const auto& r : rotinas) {
         tm now = clockUTC.getDateTime();
         
         if(r.weekday[now.tm_wday]){
-            for (const auto& h : r.horarios) {
+            for (int i = 0; i < 720; i++) {              
+                horario h = r.horarios[i];
+
+                if(h.start == 1441 || h.end == 1441)
+                    continue;
+                
                 if((now.tm_hour * 60 + now.tm_min) >= h.start  && (now.tm_hour * 60 + now.tm_min) < h.end){
                     _aquarium->setWaterPumpStatus(HIGH);
                     doc["status_pump"] = true;
@@ -382,10 +421,16 @@ DynamicJsonDocument AquariumServices::handlerWaterPump() {
 void AquariumServices::handlerWaterPump(Date now) {
     try
     {
-        vector<routine> rotinas = _setupDevice->read<routine>("/rotinas.bin");
+    SetupDevice _setupDevice(_aquarium);
+        vector<routine> rotinas = _setupDevice.read<routine>("/rotinas.bin");
         for (const auto& r : rotinas) {
             if(r.weekday[now.day_of_week]){
-                for (const auto& h : r.horarios) {
+                for (int i = 0; i < 720; i++) {
+                    horario h = r.horarios[i];
+
+                    if(h.start == 1441 || h.end == 1441)
+                        continue;
+                        
                     if((now.hour * 60 + now.minute) >= h.start  && (now.hour * 60 + now.minute) < h.end){
                         _aquarium->setWaterPumpStatus(HIGH);
                         return;

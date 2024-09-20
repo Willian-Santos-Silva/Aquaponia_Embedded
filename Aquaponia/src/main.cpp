@@ -24,7 +24,7 @@
 #include <BLE2902.h>
 
 
-
+vector<routine> listRotinas;
 
 BLEServer *pServer = NULL;
 BLEService *pService;
@@ -60,9 +60,9 @@ Clock clockUTC;
 
 Memory memory;
 
-Aquarium aquarium(&memory);
-SetupDevice aquariumSetupDevice(&aquarium, &memory);
-AquariumServices aquariumServices(&aquarium, &aquariumSetupDevice);
+Aquarium aquarium;
+SetupDevice aquariumSetupDevice(&aquarium);
+AquariumServices aquariumServices(&aquarium);
 
 
 using namespace std;
@@ -243,7 +243,7 @@ void startTasks(){
   taskSendInfo.begin(&TaskSendSystemInformation, "SendInfo", 5000, 4);
   taskPeristaultic.begin(&TaskPeristaultic, "Peristautic", 5000, 1);
   taskOneWire.begin(&TaskOneWireControl, "OneWire", 1000, 2);
-  taskSaveLeitura.begin(&TaskSaveLeitura, "SaveTemperatura", 5000, 3);
+  // taskSaveLeitura.begin(&TaskSaveLeitura, "SaveTemperatura", 5000, 3);
 }
 
 
@@ -362,6 +362,8 @@ DynamicJsonDocument getRoutinesEndpoint(DynamicJsonDocument *doc)
 {
   try {
     Serial.println("[LOG] GET ROTINAS");
+
+    
     return aquariumServices.getRoutines();
   }
   catch(const std::exception& e)
@@ -403,10 +405,7 @@ DynamicJsonDocument setRoutinesEndpoint(DynamicJsonDocument *doc)
 
 DynamicJsonDocument createRoutinesEndpoint(DynamicJsonDocument *doc)
 {
- 
   Serial.println("[LOG] CRIAR ROTINA");
-  DynamicJsonDocument resp(5028);
-  resp["status_code"] = 200;
 
   JsonObject jsonRoutine = doc->as<JsonObject>();
   routine r;
@@ -414,19 +413,28 @@ DynamicJsonDocument createRoutinesEndpoint(DynamicJsonDocument *doc)
   r.id[36] = '\0';
 
   JsonArray jsonWeekday = jsonRoutine["WeekDays"].as<JsonArray>();
+  
   for (int i = 0; i < 7; i++) {
-      r.weekday[i] = jsonWeekday[i];
+    r.weekday[i] = jsonWeekday[i];
   }
-
-  uint16_t i = 0;
+  ushort i = 0;
   for (JsonObject jsonHorario : jsonRoutine["horarios"].as<JsonArray>()) {
-      horario h;
-      h.start = jsonHorario["start"];
-      h.end = jsonHorario["end"];
-      r.horarios[i] = h;
-      i++;
+    horario h;
+    h.start = jsonHorario["start"];
+    h.end = jsonHorario["end"];
+    r.horarios[i] = h;
+    i++;
   }
+  // aquariumServices.getRoutines();
   aquariumServices.addRoutines(r);
+
+  jsonRoutine.clear();
+  
+  Serial.println("SUCESSO");
+
+  DynamicJsonDocument resp(300);
+  resp["status_code"] = 200;
+
   return resp;
 }
 DynamicJsonDocument deleteRoutinesEndpoint(DynamicJsonDocument *doc)
@@ -536,70 +544,39 @@ void setup()
   aquariumSetupDevice.begin();
   attachInterrupt(PIN_RESET, reset, RISING);
   aquarium.begin();
-  
+
+
+
   horario hh;
   hh.start = 0;
   hh.end = 1390;
 
-  vector<routine> l(7);
+  vector<routine> l;
+  routine rr;
+  rr.weekday[0] = true;
+  rr.weekday[1] = true;
+  rr.weekday[2] = true;
+  rr.weekday[3] = true;
+  rr.weekday[4] = true;
+  rr.weekday[5] = true;
+  rr.weekday[6] = true;
+
+  strncpy(rr.id, "82495886-50a2-4336-9b1d-c00ed78c8978", 36);
+  rr.id[36] = '\0';
   
-  for (const auto& r : l) {
-    routine rr;
-    rr.weekday[0] = true;
-    rr.weekday[1] = true;
-    rr.weekday[2] = true;
-    rr.weekday[3] = true;
-    rr.weekday[4] = true;
-    rr.weekday[5] = true;
-    rr.weekday[6] = true;
 
-    strncpy(rr.id, "82495886-50a2-4336-9b1d-c00ed78c8978", 36);
-    rr.id[36] = '\0';
-    
+  // rr.horarios[0] = hh;
+  // rr.horarios.resize(1);
+  rr.horarios[0] = hh;
 
-    // rr.horarios[0] = hh;
-    rr.horarios.resize(720);
-    // rr.horarios.push_back(hh);
-
-    l.push_back(rr);
-  }
+  l.push_back(rr);
   aquariumSetupDevice.write<routine>(l, "/rotinas.bin");
+  l.clear();
 
 
-
-  DynamicJsonDocument doc(35000);
-  JsonArray dataArray = doc.to<JsonArray>();
-
-  vector<routine> data = aquariumSetupDevice.read<routine>("/rotinas.bin");
-  for (const auto& r : data) {
-      JsonObject rotina = dataArray.createNestedObject();
-      rotina["id"] = r.id;
-      JsonArray weekdays = rotina.createNestedArray("WeekDays");
-      for (size_t i = 0; i < sizeof(r.weekday) / sizeof(r.weekday[0]); ++i) {
-          weekdays.add(r.weekday[i]);
-      }
-
-      JsonArray horarios = rotina.createNestedArray("horarios");
-      for (const auto& h : r.horarios) {
-          JsonObject jhorario = horarios.createNestedObject();
-          // horario h = r.horarios[i];
-          jhorario["start"] = h.start;
-          jhorario["end"] = h.end;
-      }
-  }
-
-  // data.clear();
-
-
-  std::string dataStr;
-  serializeJson(doc, dataStr);
-
-  doc.clear();
-
-  // Serial.println(dataStr.c_str());
-  dataStr.clear();
-  // startBLE();
+  startBLE();
   // startTasks();
+  
   while(true){
     vTaskDelay(100 / portTICK_PERIOD_MS);
   }

@@ -7,17 +7,17 @@
 using namespace std;
 
 struct horario{
-    ushort start = 0;
-    ushort end = 0;
+    ushort start = 1441;
+    ushort end = 1441;
 };
 
 struct routine{
     char id[37];
     bool weekday[7];
-    // horario* horarios;
-    vector<horario> horarios;
-    // routine() : horarios(new horario[720]){} // Construtor para alocar memória
-    // ~routine() { delete[] horarios; }
+    horario horarios[720];
+
+    routine() {} // Construtor para alocar memória
+    ~routine() {   }
 };
 
 #endif

@@ -22,12 +22,12 @@ class Aquarium
 {
 private:
     DS18B20 ds;
-    Memory* _memory;
+    Memory _memory;
 
     float _temperature;
 
 public:
-    Aquarium(Memory *memory) : _memory(memory), ds(PIN_THERMOCOUPLE)
+    Aquarium() : ds(PIN_THERMOCOUPLE)
     {
     }
     enum solution { SOLUTION_LOWER, SOLUTION_RAISER };
@@ -121,8 +121,8 @@ public:
             return false;
         }
 
-        _memory->write<int>(ADDRESS_AQUARIUM_MIN_TEMPERATURE, tempMin);
-        _memory->write<int>(ADDRESS_AQUARIUM_MAX_TEMPERATURE, tempMax);
+        _memory.write<int>(ADDRESS_AQUARIUM_MIN_TEMPERATURE, tempMin);
+        _memory.write<int>(ADDRESS_AQUARIUM_MAX_TEMPERATURE, tempMax);
         
         return getMaxTemperature() == tempMax && getMinTemperature() == tempMin;
     }
@@ -135,28 +135,28 @@ public:
             return false;
         }
 
-        _memory->write<int>(ADDRESS_AQUARIUM_MIN_PH, phMin);
-        _memory->write<int>(ADDRESS_AQUARIUM_MAX_PH, phMax);
+        _memory.write<int>(ADDRESS_AQUARIUM_MIN_PH, phMin);
+        _memory.write<int>(ADDRESS_AQUARIUM_MAX_PH, phMax);
         
         return getMaxPh() == phMax && getMinPh() == phMin;
     }
 
     int getMaxPh()
     {
-        return _memory->read<int>(ADDRESS_AQUARIUM_MAX_PH);
+        return _memory.read<int>(ADDRESS_AQUARIUM_MAX_PH);
     }
     int getMinPh()
     {
-        return _memory->read<int>(ADDRESS_AQUARIUM_MIN_PH);
+        return _memory.read<int>(ADDRESS_AQUARIUM_MIN_PH);
     }
 
     int getMaxTemperature()
     {
-        return _memory->read<int>(ADDRESS_AQUARIUM_MAX_TEMPERATURE);
+        return _memory.read<int>(ADDRESS_AQUARIUM_MAX_TEMPERATURE);
     }
     int getMinTemperature()
     {
-        return _memory->read<int>(ADDRESS_AQUARIUM_MIN_TEMPERATURE);
+        return _memory.read<int>(ADDRESS_AQUARIUM_MIN_TEMPERATURE);
     }
 
     bool getWaterPumpStatus()
@@ -209,14 +209,14 @@ public:
             return false;
         }
 
-        _memory->write<int>(ADDRESS_PPM_PH, dosagem);
+        _memory.write<int>(ADDRESS_PPM_PH, dosagem);
         
         return getPPM() == dosagem;
     }
 
     int getPPM()
     {
-        return _memory->read<int>(ADDRESS_PPM_PH);
+        return _memory.read<int>(ADDRESS_PPM_PH);
     }
 
     int getTurbidity()
