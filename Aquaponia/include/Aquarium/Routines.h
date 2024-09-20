@@ -16,7 +16,7 @@ struct routine{
     bool weekday[7];
     horario horarios[720];
 
-    routine() {} // Construtor para alocar memória
+    routine() : id("") {} // Construtor para alocar memória
     ~routine() {   }
 };
 

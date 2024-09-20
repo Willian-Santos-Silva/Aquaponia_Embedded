@@ -10,6 +10,8 @@
 #include "Base/memory.h"
 #include "Clock/Clock.h"
 
+#include "ArduinoJson.h"
+
 #include "FS.h"
 #include "SPIFFS.h"
 
@@ -20,11 +22,10 @@ class SetupDevice {
 private:
     Memory _memory;
     Aquarium *_aquarium;
-    Clock clockUTC;
 
-    void close(File &file){
-        file.close();
-        SPIFFS.end();
+    void close(File *file){
+        file->close();
+        // SPIFFS.end();
     }
 
     File open(const char* fileFullPath, const char *mode = "r"){
@@ -64,6 +65,7 @@ public:
             Serial.println("===================");
             return;
         }
+        Clock clockUTC;
         time_t timestamp = 1726589003;
         tm * time = gmtime(&timestamp);
         clockUTC.setRTC(time);
@@ -98,7 +100,7 @@ public:
 
         file.write(reinterpret_cast<uint8_t*>(&list[0]), size * sizeof(T));
 
-        close(file);
+        close(&file);
     }
 
 
@@ -112,7 +114,7 @@ public:
         if (file.read((uint8_t *)&size, sizeof(size)) != sizeof(size)){
             Serial.printf("Erro ao ler arquivo: %s\r\n\r\n", fileFullPath);
             
-            close(file);
+            close(&file);
             
             return {};
         }
@@ -123,10 +125,54 @@ public:
         
         file.read(reinterpret_cast<uint8_t*>(&list[0]), size * sizeof(T));
         
-        close(file);
+        close(&file);
         
         return list;
     }
+
+
+
+    void write(JsonDocument * doc, const char* fileFullPath)
+    {
+        removeIfExists(fileFullPath);
+
+        File file = open(fileFullPath, FILE_WRITE);
+        
+        // uint8_t buffer[128];
+        // size_t n = serializeMsgPack((*doc), buffer, sizeof(buffer));
+        serializeMsgPack((*doc), file);
+        
+        close(&file);
+    }
+
+    JsonDocument  readJSON(const char* fileFullPath)
+    {
+        File file = open(fileFullPath, FILE_READ);
+        
+        Serial.printf("%i", file.size());
+        JsonDocument doc;
+
+        // DeserializationError error = deserializeMsgPack(doc, file);
+
+        // if (error) {
+        //     throw std::runtime_error("Falha na desserialização");
+        // }
+        // string s;
+        // deserializeMsgPack(doc, s);
+        
+        // size_t size = file.size();
+        // uint8_t buffer[size];
+        // file.read(buffer, size);
+        
+        // while(file.available()){
+        //     // Serial.write(file.read());
+        // }
+            // Serial.println(buffer);
+        DeserializationError error = deserializeMsgPack(doc, file);
+
+        return doc;
+    }
+
 };
 
 #endif

@@ -42,10 +42,10 @@ private:
         if(!onWriteCallback) return;
 
         try {
-            DynamicJsonDocument docRequest = tryDesserialize(!request.empty() ? request.c_str() : "{}");
+            JsonDocument  docRequest = tryDesserialize(!request.empty() ? request.c_str() : "{}");
             Serial.printf("[LOG] [BLE:WRITE]: %s\r\n", request.c_str());
 
-            DynamicJsonDocument response = onWriteCallback(&docRequest);
+            JsonDocument  response = onWriteCallback(&docRequest);
             docRequest.clear();
             
             responseData = trySerialize(&response);
@@ -65,13 +65,14 @@ private:
         }
 
         try {
-            DynamicJsonDocument oldValue = tryDesserialize("{}");
-            DynamicJsonDocument respDoc = onReadCallback(&oldValue);
+            JsonDocument  oldValue = tryDesserialize("{}");
+            JsonDocument  respDoc = onReadCallback(&oldValue);
             oldValue.clear();
-            // Serial.printf("%s", trySerialize(&respDoc));
+
+            Serial.printf("%s", trySerialize(&respDoc));
             notify(characteristic, trySerialize(&respDoc));
             respDoc.clear();
-             Serial.printf("Enviou");
+            // Serial.printf("Enviou");
         }
         catch (const std::exception& e)
         {
@@ -110,8 +111,8 @@ private:
         characteristic->notify();
     }
  
-    DynamicJsonDocument tryDesserialize(const char*  data){
-        DynamicJsonDocument doc(35000);
+    JsonDocument  tryDesserialize(const char*  data){
+        JsonDocument doc;
 
         DeserializationError error = deserializeJson(doc, data);
         
@@ -122,7 +123,7 @@ private:
 
         return doc;
     }
-    const char* trySerialize(DynamicJsonDocument *doc){
+    const char* trySerialize(JsonDocument  *doc){
         std::string data;
         serializeJson((*doc), data);
         
@@ -132,8 +133,8 @@ public:
     BluetoothCallback();
     ~BluetoothCallback();
 
-    std::function<DynamicJsonDocument(DynamicJsonDocument*)> onReadCallback; 
-    std::function<DynamicJsonDocument(DynamicJsonDocument*)> onWriteCallback;
+    std::function<JsonDocument (JsonDocument *)> onReadCallback; 
+    std::function<JsonDocument (JsonDocument *)> onWriteCallback;
 
     void notify(BLECharacteristic* characteristic, const char* value);
 };

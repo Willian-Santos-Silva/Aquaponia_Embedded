@@ -83,35 +83,35 @@ SemaphoreHandle_t isExecutingOneWire;
 
 void TaskSaveLeitura(){
   while(true){
-    // try {
-    //   vector<historicoTemperatura> lht = aquariumSetupDevice.read<historicoTemperatura>("/histTemp.bin");
+    try {
+      vector<historicoTemperatura> lht = aquariumSetupDevice.read<historicoTemperatura>("/histTemp.bin");
 
-    //   if(lht.size() >= 168)
-    //       lht.erase(lht.begin());
+      if(lht.size() >= 168)
+          lht.erase(lht.begin());
 
-    //   historicoTemperatura ht;
-    //   ht.temperatura = aquarium.readTemperature();
-    //   ht.time = clockUTC.getTimestamp();
-    //   aquariumSetupDevice.write<historicoTemperatura>(lht, "/histTemp.bin");
+      historicoTemperatura ht;
+      ht.temperatura = aquarium.readTemperature();
+      ht.time = clockUTC.getTimestamp();
+      aquariumSetupDevice.write<historicoTemperatura>(lht, "/histTemp.bin");
 
 
-    //   vector<historicoPh> lhph = aquariumSetupDevice.read<historicoPh>("/histTemp.bin");
+      vector<historicoPh> lhph = aquariumSetupDevice.read<historicoPh>("/histTemp.bin");
 
-    //   if(lhph.size() >- 168)
-    //       lhph.erase(lhph.begin());
+      if(lhph.size() >- 168)
+          lhph.erase(lhph.begin());
 
-    //   historicoPh hph;
-    //   hph.ph = aquarium.getPh();
-    //   hph.time = clockUTC.getTimestamp();
+      historicoPh hph;
+      hph.ph = aquarium.getPh();
+      hph.time = clockUTC.getTimestamp();
 
-    //   lhph.push_back(hph);
+      lhph.push_back(hph);
 
-    //   aquariumSetupDevice.write<historicoPh>(lhph, "/histPh.bin");
-    // }
-    // catch (const std::exception& e)
-    // {
-    //     Serial.printf("erro: %s\r\n", e.what());
-    // }
+      aquariumSetupDevice.write<historicoPh>(lhph, "/histPh.bin");
+    }
+    catch (const std::exception& e)
+    {
+        Serial.printf("erro: %s\r\n", e.what());
+    }
     vTaskDelay(3600000 / portTICK_PERIOD_MS);
   }
 }
@@ -128,7 +128,7 @@ void TaskSendSystemInformation()
     try
     {
       Serial.println("[LOG] ENVIO INFORMACAO SISTEMA");
-      DynamicJsonDocument doc = aquariumServices.getSystemInformation();
+      JsonDocument  doc = aquariumServices.getSystemInformation();
 
       std::string resultString;
       serializeJson(doc, resultString);
@@ -205,7 +205,7 @@ void TaskWaterPump()
     try
     {
       std::string data;
-      DynamicJsonDocument doc = aquariumServices.handlerWaterPump();
+      JsonDocument  doc = aquariumServices.handlerWaterPump();
       serializeJson(doc, data);
 
       blePumpCallback.notify(blePumpCharacteristic, data.c_str());
@@ -238,11 +238,11 @@ void TaskPeristaultic()
 
 void startTasks(){
   isExecutingOneWire = xSemaphoreCreateBinary();
-  taskTemperatureControl.begin(&TaskAquariumTemperatureControl, "TemperatureAquarium", 1300, 2);
-  taskWaterPump.begin(&TaskWaterPump, "WaterPump",3000, 3);
-  taskSendInfo.begin(&TaskSendSystemInformation, "SendInfo", 5000, 4);
-  taskPeristaultic.begin(&TaskPeristaultic, "Peristautic", 5000, 1);
-  taskOneWire.begin(&TaskOneWireControl, "OneWire", 1000, 2);
+  // taskTemperatureControl.begin(&TaskAquariumTemperatureControl, "TemperatureAquarium", 1300, 2);
+  // taskWaterPump.begin(&TaskWaterPump, "WaterPump",3000, 3);
+  // taskSendInfo.begin(&TaskSendSystemInformation, "SendInfo", 5000, 4);
+  // taskPeristaultic.begin(&TaskPeristaultic, "Peristautic", 5000, 1);
+  // taskOneWire.begin(&TaskOneWireControl, "OneWire", 1000, 2);
   // taskSaveLeitura.begin(&TaskSaveLeitura, "SaveTemperatura", 5000, 3);
 }
 
@@ -271,7 +271,7 @@ class MyServerCallbacks: public BLEServerCallbacks {
 };
 
 
-DynamicJsonDocument getHistPhEndpoint(DynamicJsonDocument *doc)
+JsonDocument  getHistPhEndpoint(JsonDocument  *doc)
 {
   try {
     Serial.println("[LOG] GET PH");
@@ -280,14 +280,14 @@ DynamicJsonDocument getHistPhEndpoint(DynamicJsonDocument *doc)
   catch(const std::exception& e)
   {
     Serial.printf("[callback] erro: %s\r\n", e.what());
-    DynamicJsonDocument resp(300);
+    JsonDocument  resp;
     return resp;
   }
 
 }
 
 
-DynamicJsonDocument getHistApplyEndpoint(DynamicJsonDocument *doc)
+JsonDocument  getHistApplyEndpoint(JsonDocument  *doc)
 {
   try {
     Serial.println("[LOG] GET APPLY");
@@ -296,14 +296,14 @@ DynamicJsonDocument getHistApplyEndpoint(DynamicJsonDocument *doc)
   catch(const std::exception& e)
   {
     Serial.printf("[callback] erro: %s\r\n", e.what());
-    DynamicJsonDocument resp(300);
+    JsonDocument  resp;
     return resp;
   }
 
 }
 
 
-DynamicJsonDocument getHistTempEndpoint(DynamicJsonDocument *doc)
+JsonDocument  getHistTempEndpoint(JsonDocument  *doc)
 {
   try {
     Serial.println("[LOG] GET TEMPERATURA");
@@ -312,7 +312,7 @@ DynamicJsonDocument getHistTempEndpoint(DynamicJsonDocument *doc)
   catch(const std::exception& e)
   {
     Serial.printf("[callback] erro: %s\r\n", e.what());
-    DynamicJsonDocument resp(300);
+    JsonDocument  resp;
     return resp;
   }
 
@@ -320,7 +320,8 @@ DynamicJsonDocument getHistTempEndpoint(DynamicJsonDocument *doc)
 
 
 
-DynamicJsonDocument SetRTC(DynamicJsonDocument *doc) {
+JsonDocument  SetRTC(JsonDocument  *doc) {
+  
   if (!doc->containsKey("rtc"))
   {
     throw std::runtime_error("Parametro fora de escopo");
@@ -333,7 +334,7 @@ DynamicJsonDocument SetRTC(DynamicJsonDocument *doc) {
 }
 
 
-DynamicJsonDocument updateConfigurationEndpoint(DynamicJsonDocument *doc)
+JsonDocument  updateConfigurationEndpoint(JsonDocument  *doc)
 {
   Serial.println("[LOG] ATUALIZAR CONFIGURACAO");
 
@@ -352,32 +353,30 @@ DynamicJsonDocument updateConfigurationEndpoint(DynamicJsonDocument *doc)
                                        (*doc)["tempo_reaplicacao"].as<int>());
   return (*doc);
 }
-DynamicJsonDocument getConfigurationEndpoint(DynamicJsonDocument *doc)
+JsonDocument  getConfigurationEndpoint(JsonDocument  *doc)
 {
   Serial.println("[LOG] GET CONFIGURACAO"); 
 
   return aquariumServices.getConfiguration();
 }
-DynamicJsonDocument getRoutinesEndpoint(DynamicJsonDocument *doc)
+JsonDocument  getRoutinesEndpoint(JsonDocument  *doc)
 {
   try {
     Serial.println("[LOG] GET ROTINAS");
-
-    
     return aquariumServices.getRoutines();
   }
   catch(const std::exception& e)
   {
     Serial.printf("[callback] erro: %s\r\n", e.what());
-    DynamicJsonDocument resp(300);
+    JsonDocument  resp;
     return resp;
   }
 
 }
-DynamicJsonDocument setRoutinesEndpoint(DynamicJsonDocument *doc)
+JsonDocument  setRoutinesEndpoint(JsonDocument  *doc)
 {
   Serial.println("[LOG] ATUALIZAR ROTINAS");
-  DynamicJsonDocument resp(5028);
+  JsonDocument  resp;
   resp["status_code"] = 200;
 
   JsonObject jsonRoutine = doc->as<JsonObject>();
@@ -403,7 +402,7 @@ DynamicJsonDocument setRoutinesEndpoint(DynamicJsonDocument *doc)
   return resp;
 }
 
-DynamicJsonDocument createRoutinesEndpoint(DynamicJsonDocument *doc)
+JsonDocument  createRoutinesEndpoint(JsonDocument  *doc)
 {
   Serial.println("[LOG] CRIAR ROTINA");
 
@@ -432,15 +431,15 @@ DynamicJsonDocument createRoutinesEndpoint(DynamicJsonDocument *doc)
   
   Serial.println("SUCESSO");
 
-  DynamicJsonDocument resp(300);
+  JsonDocument resp;
   resp["status_code"] = 200;
 
   return resp;
 }
-DynamicJsonDocument deleteRoutinesEndpoint(DynamicJsonDocument *doc)
+JsonDocument  deleteRoutinesEndpoint(JsonDocument  *doc)
 {
   Serial.println("[LOG] DELETAR ROTINA");
-  DynamicJsonDocument resp(5028);
+  JsonDocument resp;
   resp["status_code"] = 200;
 
   JsonObject jsonRoutine = doc->as<JsonObject>();
@@ -536,6 +535,9 @@ void startBLE(){
   pAdvertising->start();
 }
 
+
+
+
 void setup()
 {
   Serial.begin(115200);
@@ -547,31 +549,23 @@ void setup()
 
 
 
-  horario hh;
-  hh.start = 0;
-  hh.end = 1390;
+  vector<routine> l(1);
 
-  vector<routine> l;
-  routine rr;
-  rr.weekday[0] = true;
-  rr.weekday[1] = true;
-  rr.weekday[2] = true;
-  rr.weekday[3] = true;
-  rr.weekday[4] = true;
-  rr.weekday[5] = true;
-  rr.weekday[6] = true;
-
-  strncpy(rr.id, "82495886-50a2-4336-9b1d-c00ed78c8978", 36);
-  rr.id[36] = '\0';
-  
-
-  // rr.horarios[0] = hh;
-  // rr.horarios.resize(1);
-  rr.horarios[0] = hh;
-
-  l.push_back(rr);
+  // JsonDocument  docR = routineVectorToJSON(l);
   aquariumSetupDevice.write<routine>(l, "/rotinas.bin");
-  l.clear();
+  // aquariumSetupDevice.write(&docR, "/rotinas.bin");
+  // l.clear();
+
+  // vector<routine> ls = aquariumSetupDevice.read<routine>("/rotinas.bin");
+  // printRotinas(ls);
+  // ls.clear();
+  // JsonDocument  docRst = aquariumSetupDevice.readJSON("/rotinas.bin");
+  
+  // vector<historicoTemperatura> lht(168);
+  // aquariumSetupDevice.write<historicoTemperatura>(lht, "/histTemp.bin");
+
+  // vector<historicoPh> lhph(168);
+  // aquariumSetupDevice.write<historicoPh>(lhph, "/histPh.bin");
 
 
   startBLE();
