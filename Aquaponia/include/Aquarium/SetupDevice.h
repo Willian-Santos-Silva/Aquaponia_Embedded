@@ -59,12 +59,12 @@ public:
     }
     
     void begin(){
-        if (_memory.readBool(ADDRESS_START)){
-            Serial.println("===================");
-            Serial.println("STARTADO");
-            Serial.println("===================");
-            return;
-        }
+        // if (_memory.readBool(ADDRESS_START)){
+        //     Serial.println("===================");
+        //     Serial.println("STARTADO");
+        //     Serial.println("===================");
+        //     return;
+        // }
         Clock clockUTC;
         time_t timestamp = 1726589003;
         tm * time = gmtime(&timestamp);

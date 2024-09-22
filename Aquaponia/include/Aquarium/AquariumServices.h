@@ -30,8 +30,8 @@ JsonDocument  routineVectorToJSON(vector<routine> & data) {
       for (int i = 0; i < 720; i++) {
           horario h = r.horarios[i];
 
-          if(h.start == 1441 || h.end == 1441)
-              continue;
+        //   if(h.start == 1441 || h.end == 1441)
+        //       continue;
           
           rotina["horarios"][i]["start"] = h.start;
           rotina["horarios"][i]["end"] = h.end;
@@ -63,8 +63,8 @@ public:
     JsonDocument  getHistTemp();
     JsonDocument  getRoutines();
     JsonDocument  getConfiguration();
-    void setRoutines(routine& r);
-    void addRoutines(routine& r);
+    void setRoutines(routine* r);
+    void addRoutines(routine* r);
     void removeRoutine(char id[36]);
     void controlPeristaultic();
     JsonDocument  handlerWaterPump();
@@ -102,6 +102,7 @@ const char* printData(time_t *data) {
         timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec);
 
     // Serial.printf("DATA: %s\r\n\r\n", dateTimeStr);
+    free(timeinfo);
     return dateTimeStr;
 }
 
@@ -235,7 +236,8 @@ aplicacoes AquariumServices::applySolution(const vector<aplicacoes>& aplicacaoLi
         aplicacao.dataAplicacao = timestamp;
         return aplicacao;
     }
-
+    free(nowp);
+    free(timeUltimaAplicacao);
     return aplicacao;
 }
 
@@ -352,14 +354,14 @@ JsonDocument  AquariumServices::getRoutines(){
 }
 
 
-void AquariumServices::setRoutines(routine& r){
+void AquariumServices::setRoutines(routine* r){
     SetupDevice _setupDevice(_aquarium);
     vector<routine> routines = _setupDevice.read<routine>("/rotinas.bin");
     size_t i = 0;
     bool found = false;
     while (i < routines.size()) {
-        if(strcmp(r.id, routines[i].id) == 0){
-            routines[i] = r;
+        if(strcmp(r->id, routines[i].id) == 0){
+            routines[i] = *r;
             found = true;
             break;
         }
@@ -385,11 +387,11 @@ void AquariumServices::removeRoutine(char id[37]){
     if(found)
         _setupDevice.write<routine>(routines, "/rotinas.bin");
 }
-void AquariumServices::addRoutines(routine& r){
+void AquariumServices::addRoutines(routine* r){
     SetupDevice _setupDevice(_aquarium);
     vector<routine> data = _setupDevice.read<routine>("/rotinas.bin");
 
-    data.push_back(r);
+    data.push_back(*r);
     _setupDevice.write<routine>(data, "/rotinas.bin");
 
     data.clear();

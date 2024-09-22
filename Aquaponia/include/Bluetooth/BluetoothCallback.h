@@ -8,26 +8,24 @@
 #include <freertos/task.h>
 #include "base64.h"
 
-#include <BLEDevice.h>
-#include <BLEServer.h>
-#include <BLE2902.h>
+#include <NimBLEDevice.h>
 
 
-SemaphoreHandle_t isNotify = xSemaphoreCreateBinary();
+// SemaphoreHandle_t isNotify = xSemaphoreCreateBinary();
 
-class BluetoothCallback : public BLECharacteristicCallbacks 
+class BluetoothCallback : public NimBLECharacteristicCallbacks 
 {
 private:
-    std::string request = "";
-    std::string responseData = "";
+    String request = "";
+    String responseData = "";
     size_t expectedLength = 0;
     bool isReceivingMessage = false;
 
 
-    void onWrite(BLECharacteristic* characteristic) {
-        std::string value = characteristic->getValue();
+    void onWrite(NimBLECharacteristic* characteristic) {
+        String value = characteristic->getValue().c_str();
 
-        if(static_cast<unsigned char>(value.back()) != 0xFF){
+        if(value.charAt(value.length() - 1) != 0xFF){
             if(!isReceivingMessage){
                 isReceivingMessage = true;
                 
@@ -42,68 +40,81 @@ private:
         if(!onWriteCallback) return;
 
         try {
-            JsonDocument  docRequest = tryDesserialize(!request.empty() ? request.c_str() : "{}");
+            JsonDocument docRequest = tryDesserialize(!request.isEmpty() ? request.c_str() : "{}");
             Serial.printf("[LOG] [BLE:WRITE]: %s\r\n", request.c_str());
 
-            JsonDocument  response = onWriteCallback(&docRequest);
+            JsonDocument response = onWriteCallback(&docRequest);
             docRequest.clear();
             
-            responseData = trySerialize(&response);
+            responseData = trySerialize(response);
             response.clear();
         }
         catch (const std::exception& e)
         {
             uint8_t endSignal = 0xFF;
             characteristic->setValue(&endSignal, sizeof(endSignal));
-            Serial.printf("[write] erro: %s\n", e.what());
+            Serial.printf("[LOG][BLE:WRITE][E]: %s\n", e.what());
         }
     }
 
-    void onRead(BLECharacteristic* characteristic) {
+    void onRead(NimBLECharacteristic* characteristic) {
         if(!onReadCallback || isReceivingMessage){
             return;
         }
 
         try {
+            JsonDocument  respDoc;
             JsonDocument  oldValue = tryDesserialize("{}");
-            JsonDocument  respDoc = onReadCallback(&oldValue);
+            respDoc = onReadCallback(&oldValue);
             oldValue.clear();
+        
+            String data;
+            serializeJson(respDoc, data);
 
-            notify(characteristic, trySerialize(&respDoc));
+            notify(characteristic, data);
+            
+            data.clear();
+        
             respDoc.clear();
         }
         catch (const std::exception& e)
         {
             uint8_t endSignal = 0xFF;
             characteristic->setValue(&endSignal, sizeof(endSignal));
-            Serial.printf("[read] erro: %s\r\n", e.what());
+            Serial.printf("[LOG][BLE:READ][E]: %s\r\n", e.what());
         }
     }
-    void onNotify(BLECharacteristic* characteristic) {
+    void onNotify(NimBLECharacteristic* characteristic) {
         if(isReceivingMessage){
             return;
         }
-        // Serial.printf("data: %s\r\n", characteristic->getValue().c_str());
+        Serial.printf("[LOG][BLE:NOTIFY]: %s\r\n", characteristic->getValue().c_str());
     }
 
-    void sendBLE(BLECharacteristic* characteristic, const std::string& value){
+    void sendBLE(NimBLECharacteristic* characteristic, String& value){
         size_t offset = 0;  
-        std::vector<uint8_t> vec(value.begin(), value.end());
-        size_t dataLength = vec.size();
+        size_t dataLength = value.length() + 1;
 
+        try {
+            while (offset < dataLength) {
+                size_t chunkSize = static_cast<size_t>(MAX_SIZE);
+                
+                string chunckStr = value.substring(offset, offset + chunkSize).c_str();
+                characteristic->setValue(chunckStr);
 
-        while (offset < dataLength) {
-            size_t chunkSize = std::min(MAX_SIZE, dataLength - offset);
+                // Serial.printf("[%lu][%lu][LOG][BLE:NOTIFY]: %s\r\n", offset, chunkSize, characteristic->getValue().c_str());
+                characteristic->notify();
 
-            std::string concatenated(vec.begin() + offset, vec.begin() + offset + chunkSize);
-
-            Serial.printf("set: %s\r\n", concatenated.c_str());
-            characteristic->setValue(concatenated);
-            characteristic->notify();
-
-            offset += chunkSize;
+                offset += chunkSize;
+                chunckStr.clear();
+            }
+        }
+        catch (const std::exception& e)
+        {
+            Serial.printf("[LOG][BLE:READ][E]: %s\r\n", e.what());
         }
         
+        Serial.printf("\r\nfim\r\n");
         uint8_t endSignal = 0xFF;
         characteristic->setValue(&endSignal, sizeof(endSignal));
         characteristic->notify();
@@ -115,17 +126,16 @@ private:
         DeserializationError error = deserializeJson(doc, data);
         
         if (error) {
-        //     throw std::runtime_error(("Falha na desserialização: %s" + String(error.f_str())).c_str());
             throw std::runtime_error("Falha na desserialização");
         }
 
         return doc;
     }
-    const char* trySerialize(JsonDocument  *doc){
-        std::string data;
-        serializeJson((*doc), data);
+    String trySerialize(JsonDocument &doc){
+        String data;
+        serializeJson(doc, data);
         
-        return data.c_str();
+        return data;
     }
 public:
     BluetoothCallback();
@@ -134,22 +144,20 @@ public:
     std::function<JsonDocument (JsonDocument *)> onReadCallback; 
     std::function<JsonDocument (JsonDocument *)> onWriteCallback;
 
-    void notify(BLECharacteristic* characteristic, const char* value);
+    void notify(NimBLECharacteristic* characteristic, String& value);
 };
 
 BluetoothCallback::BluetoothCallback() 
-{xSemaphoreGive(isNotify);
+{
+    // xSemaphoreGive(isNotify);
 }
 
 BluetoothCallback::~BluetoothCallback()
 {
 }
 
-void BluetoothCallback::notify(BLECharacteristic* characteristic, const char* value)
+void BluetoothCallback::notify(NimBLECharacteristic* characteristic, String &value)
 {
-     if (xSemaphoreTake(isNotify, portMAX_DELAY)) {
         sendBLE(characteristic, value);
-        xSemaphoreGive(isNotify);
-    }
 }
 #endif
