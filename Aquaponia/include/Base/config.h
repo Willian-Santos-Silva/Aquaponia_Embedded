@@ -4,7 +4,7 @@
 // CONTANTES
 
 
-#define MAX_SIZE                                512
+#define MAX_SIZE                                256
 #define MAX_BUFFER_SIZE  35000
 
 #define MIN_AQUARIUM_TEMP                       23

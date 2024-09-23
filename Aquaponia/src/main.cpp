@@ -75,7 +75,6 @@ TaskWrapper taskOneWire;
 TaskWrapper taskScanWiFiDevices;
 TaskWrapper taskPeristaultic;
 TaskWrapper taskSaveLeitura;
-SemaphoreHandle_t isExecutingOneWire;
 
 void TaskSaveLeitura(){
   while(true){
@@ -106,7 +105,7 @@ void TaskSaveLeitura(){
     }
     catch (const std::exception& e)
     {
-        Serial.printf("erro: %s\r\n", e.what());
+        log_e("erro: %s\r\n", e.what());
     }
     vTaskDelay(3600000 / portTICK_PERIOD_MS);
   }
@@ -117,13 +116,9 @@ void TaskSendSystemInformation()
 {
   while (true)
   {
-    if(!xSemaphoreTake(isExecutingOneWire, portMAX_DELAY))
-    {
-      continue;
-    }
     try
     {
-      Serial.println("[LOG] ENVIO INFORMACAO SISTEMA");
+      log_e("[LOG] ENVIO INFORMACAO SISTEMA");
       JsonDocument  doc = aquariumServices.getSystemInformation();
 
       String resultString;
@@ -135,30 +130,13 @@ void TaskSendSystemInformation()
     }
     catch (const std::exception& e)
     {
-        Serial.printf("erro: %s\r\n", e.what());
+        log_e("erro: %s\r\n", e.what());
     }
 
     vTaskDelay(5000 / portTICK_PERIOD_MS);
   }
 }
-void TaskOneWireControl()
-{
-  while (true)
-  {
-    xSemaphoreGive(isExecutingOneWire);
-    try
-    {
-      Serial.println("[LOG] LEITURA TERMOPAR");
-      aquarium.updateTemperature();
-    }
-    catch (const std::exception& e)
-    {
-        Serial.printf("erro: %s\r\n", e.what());
-    }
 
-    vTaskDelay(1000 / portTICK_PERIOD_MS);
-  }
-}
 void TaskAquariumTemperatureControl()
 {
   float temperature;
@@ -168,16 +146,12 @@ void TaskAquariumTemperatureControl()
   double output;
 
   while (true)
-  {
-    if(!xSemaphoreTake(isExecutingOneWire, portMAX_DELAY))
-    {
-      continue;
-    }
-    
+  {    
     temperature = aquarium.readTemperature();
     if (temperature == -127.0f)
     {
       aquarium.setStatusHeater(LOW);
+      vTaskDelay(1000 / portTICK_PERIOD_MS);
       continue;
     }
 
@@ -194,6 +168,7 @@ void TaskAquariumTemperatureControl()
     vTaskDelay(1000 / portTICK_PERIOD_MS);
   }
 }
+
 void TaskWaterPump()
 {
   while (true)
@@ -208,12 +183,12 @@ void TaskWaterPump()
     }
     catch (const std::exception& e)
     {
-      Serial.printf("[erro] [WATER INFORMATION]: %s\r\n", e.what());
+      log_e("[erro] [WATER INFORMATION]: %s\r\n", e.what());
     }
     vTaskDelay(1000 / portTICK_PERIOD_MS);
   }
 }
-SemaphoreHandle_t xSemaphore = NULL;
+
 void TaskPeristaultic()
 {
   while (true)
@@ -225,7 +200,7 @@ void TaskPeristaultic()
     }
     catch (const std::exception& e)
     {
-      Serial.printf("[erro] [PERISTAULTIC INFORMATION]: %s\r\n", e.what());
+      log_e("[erro] [PERISTAULTIC INFORMATION]: %s\r\n", e.what());
     }
 
     vTaskDelay(500 / portTICK_PERIOD_MS);
@@ -233,12 +208,10 @@ void TaskPeristaultic()
 }
 
 void startTasks(){
-  isExecutingOneWire = xSemaphoreCreateBinary();
   taskTemperatureControl.begin(&TaskAquariumTemperatureControl, "TemperatureAquarium", 1300, 2);
   taskWaterPump.begin(&TaskWaterPump, "WaterPump",3000, 3);
   taskSendInfo.begin(&TaskSendSystemInformation, "SendInfo", 5000, 4);
   taskPeristaultic.begin(&TaskPeristaultic, "Peristautic", 5000, 1);
-  taskOneWire.begin(&TaskOneWireControl, "OneWire", 1000, 2);
   taskSaveLeitura.begin(&TaskSaveLeitura, "SaveTemperatura", 5000, 3);
 }
 
@@ -249,7 +222,7 @@ void startTasks(){
 // // ============================================================================================
 
 void  reset() {
-  Serial.println("Reset");
+  log_e("Reset");
   memory.clear();
   ESP.restart();
 }
@@ -257,11 +230,11 @@ void  reset() {
 // Callback para conexão e desconexão
 class MyServerCallbacks: public NimBLEServerCallbacks {
     void onConnect(BLEServer* pServer) {
-        Serial.println("Cliente conectado");
+        log_e("Cliente conectado");
     }
 
     void onDisconnect(BLEServer* pServer) {
-        Serial.println("Cliente desconectado");
+        log_e("Cliente desconectado");
         pServer->getAdvertising()->start();
     }
 };
@@ -270,12 +243,12 @@ class MyServerCallbacks: public NimBLEServerCallbacks {
 JsonDocument  getHistPhEndpoint(JsonDocument  *doc)
 {
   try {
-    Serial.println("[LOG] GET PH");
+    log_e("[LOG] GET PH");
     return aquariumServices.getHistPh();
   }
   catch(const std::exception& e)
   {
-    Serial.printf("[callback] erro: %s\r\n", e.what());
+    log_e("[callback] erro: %s\r\n", e.what());
     JsonDocument  resp;
     return resp;
   }
@@ -286,12 +259,12 @@ JsonDocument  getHistPhEndpoint(JsonDocument  *doc)
 JsonDocument  getHistApplyEndpoint(JsonDocument  *doc)
 {
   try {
-    Serial.println("[LOG] GET APPLY");
+    log_e("[LOG] GET APPLY");
     return aquariumServices.getHistPh();
   }
   catch(const std::exception& e)
   {
-    Serial.printf("[callback] erro: %s\r\n", e.what());
+    log_e("[callback] erro: %s\r\n", e.what());
     JsonDocument  resp;
     return resp;
   }
@@ -302,12 +275,12 @@ JsonDocument  getHistApplyEndpoint(JsonDocument  *doc)
 JsonDocument  getHistTempEndpoint(JsonDocument  *doc)
 {
   try {
-    Serial.println("[LOG] GET TEMPERATURA");
+    log_e("[LOG] GET TEMPERATURA");
     return aquariumServices.getHistTemp();
   }
   catch(const std::exception& e)
   {
-    Serial.printf("[callback] erro: %s\r\n", e.what());
+    log_e("[callback] erro: %s\r\n", e.what());
     JsonDocument  resp;
     return resp;
   }
@@ -332,7 +305,7 @@ JsonDocument  SetRTC(JsonDocument  *doc) {
 
 JsonDocument  updateConfigurationEndpoint(JsonDocument  *doc)
 {
-  Serial.println("[LOG] ATUALIZAR CONFIGURACAO");
+  log_e("[LOG] ATUALIZAR CONFIGURACAO");
 
   if (!doc->containsKey("min_temperature") || !doc->containsKey("max_temperature") || 
       !doc->containsKey("min_ph") || !doc->containsKey("max_ph") || 
@@ -351,19 +324,19 @@ JsonDocument  updateConfigurationEndpoint(JsonDocument  *doc)
 }
 JsonDocument  getConfigurationEndpoint(JsonDocument  *doc)
 {
-  Serial.println("[LOG] GET CONFIGURACAO"); 
+  log_e("[LOG] GET CONFIGURACAO"); 
 
   return aquariumServices.getConfiguration();
 }
 JsonDocument  getRoutinesEndpoint(JsonDocument  *doc)
 {
   try {
-    Serial.println("[LOG] GET ROTINAS");
+    log_e("[LOG] GET ROTINAS");
     return aquariumServices.getRoutines();
   }
   catch(const std::exception& e)
   {
-    Serial.printf("[callback] erro: %s\r\n", e.what());
+    log_e("[callback] erro: %s\r\n", e.what());
     JsonDocument  resp;
     return resp;
   }
@@ -371,7 +344,7 @@ JsonDocument  getRoutinesEndpoint(JsonDocument  *doc)
 }
 JsonDocument  setRoutinesEndpoint(JsonDocument  *doc)
 {
-  Serial.println("[LOG] ATUALIZAR ROTINAS");
+  log_e("[LOG] ATUALIZAR ROTINAS");
   JsonDocument  resp;
   resp["status_code"] = 200;
 
@@ -379,7 +352,7 @@ JsonDocument  setRoutinesEndpoint(JsonDocument  *doc)
   strncpy(r->id, (*doc)["id"].as<const char*>(), 36);
   r->id[36] = '\0';
   
-  JsonArray jsonWeekday = (*doc)["WeekDays"].as<JsonArray>();
+  JsonArray jsonWeekday = (*doc)["weekdays"].as<JsonArray>();
   for (int i = 0; i < 7; i++) {
     r->weekday[i] = jsonWeekday[i];
   }
@@ -393,19 +366,21 @@ JsonDocument  setRoutinesEndpoint(JsonDocument  *doc)
     i++;
   }
   aquariumServices.setRoutines(r);
+
   delete r;
-  bleRoutinesGetCharacteristic->notify();
+  
   return resp;
 }
 
 JsonDocument  createRoutinesEndpoint(JsonDocument  *doc)
 {
-  Serial.println("[LOG] CRIAR ROTINA");
+  log_e("[LOG] CRIAR ROTINA");
 
   routine* r = new routine();
   strncpy(r->id, (*doc)["id"].as<const char*>(), 36);
+  r->id[36] = '\0';
 
-  JsonArray jsonWeekday = (*doc)["WeekDays"].as<JsonArray>();
+  JsonArray jsonWeekday = (*doc)["weekdays"].as<JsonArray>();
   
   for (int i = 0; i < 7; i++) {
     r->weekday[i] = jsonWeekday[i];
@@ -422,7 +397,7 @@ JsonDocument  createRoutinesEndpoint(JsonDocument  *doc)
   aquariumServices.addRoutines(r);
   
   delete r;
-  Serial.println("SUCESSO");
+  log_e("SUCESSO");
   serializeJson((*doc), Serial);
   JsonDocument resp;
   resp["status_code"] = 200;
@@ -431,7 +406,7 @@ JsonDocument  createRoutinesEndpoint(JsonDocument  *doc)
 }
 JsonDocument  deleteRoutinesEndpoint(JsonDocument  *doc)
 {
-  Serial.println("[LOG] DELETAR ROTINA");
+  log_e("[LOG] DELETAR ROTINA");
   JsonDocument resp;
   resp["status_code"] = 200;
 
@@ -535,29 +510,29 @@ void startBLE(){
 void setup()
 {
   Serial.begin(115200);
+  Serial.setDebugOutput(true);
 
-  
   aquariumSetupDevice.begin();
   attachInterrupt(PIN_RESET, reset, RISING);
   aquarium.begin();
 
 
 
-  vector<routine> l(1);
-  aquariumSetupDevice.write<routine>(l, "/rotinas.bin");
-  l.clear();
+  // vector<routine> l(1);
+  // aquariumSetupDevice.write<routine>(l, "/rotinas.bin");
+  // l.clear();
   
-  // vector<historicoTemperatura> lht(168);
-  // aquariumSetupDevice.write<historicoTemperatura>(lht, "/histTemp.bin");
-  // lht.clear();
+  vector<historicoTemperatura> lht(1);
+  aquariumSetupDevice.write<historicoTemperatura>(lht, "/histTemp.bin");
+  lht.clear();
   
-  // vector<historicoPh> lhph(168);
-  // aquariumSetupDevice.write<historicoPh>(lhph, "/histPh.bin");
-  // lhph.clear(); 
+  vector<historicoPh> lhph(1);
+  aquariumSetupDevice.write<historicoPh>(lhph, "/histPh.bin");
+  lhph.clear(); 
 
 
   startBLE();
-  // startTasks();
+  startTasks();
   
   while(true){
     vTaskDelay(100 / portTICK_PERIOD_MS);

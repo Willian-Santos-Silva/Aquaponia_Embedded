@@ -18,7 +18,7 @@ using namespace std;
 JsonDocument  routineVectorToJSON(vector<routine> & data) {
   JsonDocument doc;
   JsonArray dataArray = doc.to<JsonArray>();
-  
+  Serial.printf("\r\nSize: %lu\r\n", data.size());
   for (const auto& r : data) {
       JsonObject rotina = dataArray.add<JsonObject>();
       rotina["id"] = r.id;
@@ -30,14 +30,17 @@ JsonDocument  routineVectorToJSON(vector<routine> & data) {
       for (int i = 0; i < 720; i++) {
           horario h = r.horarios[i];
 
-        //   if(h.start == 1441 || h.end == 1441)
-        //       continue;
+          if(h.start == 1441 || h.end == 1441)
+              continue;
           
           rotina["horarios"][i]["start"] = h.start;
           rotina["horarios"][i]["end"] = h.end;
       }
-      dataArray.add(rotina);
+    //   dataArray.add<JsonObject>();
   }
+  Serial.printf("\r\n======================\r\n");
+    serializeJson(doc, Serial);
+  Serial.printf("\r\n======================\r\n");
   
   return doc;
 }
@@ -47,6 +50,7 @@ class AquariumServices
 private:
     Aquarium* _aquarium;
     Clock clockUTC;
+    SetupDevice* _setupDevice;
 
     aplicacoes applySolution(const vector<aplicacoes>& aplicacaoList, Aquarium::solution so);
     aplicacoes applyRiseSolution(double deltaPh, double acumuladoAplicado);
@@ -72,6 +76,7 @@ public:
 
 AquariumServices::AquariumServices(Aquarium *aquarium) : _aquarium(aquarium)
 {
+    _setupDevice = new SetupDevice(aquarium);
 }
 
 AquariumServices::~AquariumServices()
@@ -82,7 +87,7 @@ JsonDocument  AquariumServices::getSystemInformation()
 {
     JsonDocument  doc;
     doc["temperatura"] = _aquarium->readTemperature();
-    doc["rtc"] = clockUTC.getDateTimeString();
+    doc["rtc"] = clockUTC.getTimestamp();
     doc["ph"] = _aquarium->getPh();
     doc["ntu"] = _aquarium->getTurbidity();
     doc["status_heater"] = _aquarium->getHeaterStatus();
@@ -101,7 +106,7 @@ const char* printData(time_t *data) {
         timeinfo->tm_mday, timeinfo->tm_mon + 1, timeinfo->tm_year + 1900,
         timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec);
 
-    // Serial.printf("DATA: %s\r\n\r\n", dateTimeStr);
+    // log_e("DATA: %s", dateTimeStr);
     free(timeinfo);
     return dateTimeStr;
 }
@@ -115,8 +120,7 @@ JsonDocument  AquariumServices::getHistPh(){
     JsonDocument  doc;
     JsonArray dataArray = doc.to<JsonArray>();
 
-    SetupDevice _setupDevice(_aquarium);
-    vector<historicoPh> list = _setupDevice.read<historicoPh>("/histTemp.bin");
+    vector<historicoPh> list = _setupDevice->read<historicoPh>("/histTemp.bin");
     for (const auto& data : list) {
         JsonObject dataObj;
         dataObj["ph"] = data.ph;
@@ -134,8 +138,7 @@ JsonDocument  AquariumServices::getHistTemp(){
     JsonDocument  doc;
     JsonArray dataArray = doc.to<JsonArray>();
 
-    SetupDevice _setupDevice(_aquarium);
-    vector<historicoTemperatura> list = _setupDevice.read<historicoTemperatura>("/histPh.bin");
+    vector<historicoTemperatura> list = _setupDevice->read<historicoTemperatura>("/histPh.bin");
     for (const auto& data : list) {
         JsonObject dataObj;
         dataObj["temperatura"] = data.temperatura;
@@ -150,43 +153,42 @@ JsonDocument  AquariumServices::getHistTemp(){
 
 
 void AquariumServices::controlPeristaultic() {
-    SetupDevice _setupDevice(_aquarium);
-    vector<aplicacoes> aplicacaoList = _setupDevice.read<aplicacoes>("/pump.bin");
+    vector<aplicacoes> aplicacaoList = _setupDevice->read<aplicacoes>("/pump.bin");
 
     aplicacoes applyRaiser = applySolution(aplicacaoList, _aquarium->SOLUTION_RAISER);
-    
 
     if(applyRaiser.ml > 0.0) {
-        Serial.printf("Dosagem Raiser: %lf\r\n\r\n", applyRaiser.ml);
+        log_e("Dosagem Raiser: %lf", applyRaiser.ml);
 
         aplicacaoList.push_back(applyRaiser);
 
         if(aplicacaoList.size() > 10)
             aplicacaoList.erase(aplicacaoList.begin());
 
-        _setupDevice.write<aplicacoes>(aplicacaoList, "/pump.bin");
+        _setupDevice->write<aplicacoes>(aplicacaoList, "/pump.bin");
     }
 
 
     aplicacoes applyLower = applySolution(aplicacaoList, _aquarium->SOLUTION_LOWER);
     if(applyLower.ml > 0.0){
-        Serial.printf("Dosagem Lower: %lf\r\n\r\n", applyLower.ml);
+        log_e("Dosagem Lower: %lf", applyLower.ml);
 
         aplicacaoList.push_back(applyLower);
         
         if(aplicacaoList.size() > 10)
             aplicacaoList.erase(aplicacaoList.begin());
             
-    SetupDevice _setupDevice(_aquarium);
-        _setupDevice.write<aplicacoes>(aplicacaoList, "/pump.bin");
+        _setupDevice->write<aplicacoes>(aplicacaoList, "/pump.bin");
     }
+
+    aplicacaoList.clear();
 }
 
 aplicacoes AquariumServices::applySolution(const vector<aplicacoes>& aplicacaoList, Aquarium::solution solution) {
     aplicacoes ultimaAplicacao;
     aplicacoes primeiraAplicacao;
 
-    struct tm *timeUltimaAplicacao;
+    tm *timeUltimaAplicacao;
     time_t dataProximaAplicacao;
     bool hasLast = false;
 
@@ -194,15 +196,14 @@ aplicacoes AquariumServices::applySolution(const vector<aplicacoes>& aplicacaoLi
     double deltaPh;
     double acumuladoAplicado = 0;
 
-    tm now = clockUTC.getDateTime();
-    tm *nowp = &now;
-    time_t timestamp = mktime(nowp); 
+    // time_t timestamp = clockUTC.getTimestamp(); 
 
     for (uint32_t i = aplicacaoList.size(); i > 0; i--) {
         aplicacoes aplicacao = aplicacaoList[i - 1];
 
         if(aplicacao.type != solution)
             continue;
+
         primeiraAplicacao = aplicacao;
             
         if(!hasLast){
@@ -211,33 +212,33 @@ aplicacoes AquariumServices::applySolution(const vector<aplicacoes>& aplicacaoLi
         }
 
         if((long)ultimaAplicacao.dataAplicacao - (long)aplicacao.dataAplicacao >= DEFAULT_TIME_DELAY_PH
-         || ((long)timestamp - (long)ultimaAplicacao.dataAplicacao) >=  DEFAULT_TIME_DELAY_PH)
+        //  || ((long)timestamp - (long)ultimaAplicacao.dataAplicacao) >=  DEFAULT_TIME_DELAY_PH
+         )
             break;
 
         acumuladoAplicado += aplicacao.ml;
     }
 
-    if(hasLast){
-        Serial.printf("DATA ULTIMA: %s\r\n", printData(&ultimaAplicacao.dataAplicacao));
-    }
-
+    // if(hasLast){
+    //     log_e("DATA ULTIMA: %s", printData(&ultimaAplicacao.dataAplicacao));
+    // }
+    // free(timeUltimaAplicacao);
+    
     aplicacoes aplicacao;
 
     if(solution == Aquarium::SOLUTION_LOWER){
         aplicacao = applyLowerSolution(0, acumuladoAplicado);
         aplicacao.type = solution;
-        aplicacao.dataAplicacao = timestamp;
+        // aplicacao.dataAplicacao = timestamp;
         return aplicacao;
     }
 
     if(solution == Aquarium::SOLUTION_RAISER){
         aplicacao = applyRiseSolution(0, acumuladoAplicado);
         aplicacao.type = solution;
-        aplicacao.dataAplicacao = timestamp;
+        // aplicacao.dataAplicacao = timestamp;
         return aplicacao;
     }
-    free(nowp);
-    free(timeUltimaAplicacao);
     return aplicacao;
 }
 
@@ -266,8 +267,6 @@ aplicacoes AquariumServices::applyRiseSolution(double deltaPh, double acumuladoA
         deltaPh = ph - initialPh;
         vTaskDelay(10 / portTICK_PERIOD_MS);
     }
-    Serial.printf("APLICADO: %lf\r\n", aplicacao.ml);
-
     return aplicacao;
 }
 
@@ -316,47 +315,43 @@ JsonDocument  AquariumServices::getConfiguration(){
 
 void printRotinas(vector<routine> &data){    
     for (const auto& r : data) {
-        Serial.printf("%s\r\n",r.id);
+        log_e("%s",r.id);
         for (size_t i = 0; i < sizeof(r.weekday) / sizeof(r.weekday[0]); ++i) {
-            Serial.printf("%d",r.weekday[i]);
+            log_e("%d",r.weekday[i]);
         }
-            Serial.printf("\r\n");
 
         for (int i = 0; i < 720; i++) {
             horario h = r.horarios[i];
             Serial.println(String(h.start) + " - " + String(h.end));
         }
-        Serial.printf("\r\n\r\n");
+        
         delay(200);
     }
 }
 void printRotina(const routine &r)  {    
-    Serial.printf("%s\r\n",r.id);
+    log_e("%s",r.id);
     for (size_t i = 0; i < sizeof(r.weekday) / sizeof(r.weekday[0]); ++i) {
-        Serial.printf("%d",r.weekday[i]);
+        log_e("%d",r.weekday[i]);
     }
-        Serial.printf("\r\n");
 
     for (int i = 0; i < 720; i++) {
         horario h = r.horarios[i];
         Serial.println(String(h.start) + " - " + String(h.end));
     }
-    Serial.printf("\r\n\r\n");
+
     delay(200);
 }
 
 
 JsonDocument  AquariumServices::getRoutines(){
-    SetupDevice _setupDevice(_aquarium);
-    vector<routine> data = _setupDevice.read<routine>("/rotinas.bin");
+    vector<routine> data = _setupDevice->read<routine>("/rotinas.bin");
     
     return routineVectorToJSON(data);
 }
 
 
 void AquariumServices::setRoutines(routine* r){
-    SetupDevice _setupDevice(_aquarium);
-    vector<routine> routines = _setupDevice.read<routine>("/rotinas.bin");
+    vector<routine> routines = _setupDevice->read<routine>("/rotinas.bin");
     size_t i = 0;
     bool found = false;
     while (i < routines.size()) {
@@ -368,12 +363,11 @@ void AquariumServices::setRoutines(routine* r){
         i++;
     }
     if(found)
-        _setupDevice.write<routine>(routines, "/rotinas.bin");
+        _setupDevice->write<routine>(routines, "/rotinas.bin");
 }
 
 void AquariumServices::removeRoutine(char id[37]){
-    SetupDevice _setupDevice(_aquarium);
-    vector<routine> routines = _setupDevice.read<routine>("/rotinas.bin");
+    vector<routine> routines = _setupDevice->read<routine>("/rotinas.bin");
     size_t i = 0;
     bool found = false;
     while (i < routines.size()) {
@@ -385,14 +379,13 @@ void AquariumServices::removeRoutine(char id[37]){
         i++;
     }
     if(found)
-        _setupDevice.write<routine>(routines, "/rotinas.bin");
+        _setupDevice->write<routine>(routines, "/rotinas.bin");
 }
 void AquariumServices::addRoutines(routine* r){
-    SetupDevice _setupDevice(_aquarium);
-    vector<routine> data = _setupDevice.read<routine>("/rotinas.bin");
+    vector<routine> data = _setupDevice->read<routine>("/rotinas.bin");
 
     data.push_back(*r);
-    _setupDevice.write<routine>(data, "/rotinas.bin");
+    _setupDevice->write<routine>(data, "/rotinas.bin");
 
     data.clear();
 }
@@ -410,8 +403,7 @@ void AquariumServices::updateConfiguration(int min_temperature, int max_temperat
 JsonDocument  AquariumServices::handlerWaterPump() {
     JsonDocument  doc;
 
-    SetupDevice _setupDevice(_aquarium);
-    vector<routine> rotinas = _setupDevice.read<routine>("/rotinas.bin");
+    vector<routine> rotinas = _setupDevice->read<routine>("/rotinas.bin");
     
     for (const auto& r : rotinas) {
         tm now = clockUTC.getDateTime();
@@ -445,8 +437,7 @@ JsonDocument  AquariumServices::handlerWaterPump() {
 void AquariumServices::handlerWaterPump(Date now) {
     try
     {
-    SetupDevice _setupDevice(_aquarium);
-        vector<routine> rotinas = _setupDevice.read<routine>("/rotinas.bin");
+        vector<routine> rotinas = _setupDevice->read<routine>("/rotinas.bin");
         for (const auto& r : rotinas) {
             if(r.weekday[now.day_of_week]){
                 for (int i = 0; i < 720; i++) {

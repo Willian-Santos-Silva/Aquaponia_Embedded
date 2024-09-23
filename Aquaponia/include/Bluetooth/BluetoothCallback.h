@@ -41,7 +41,7 @@ private:
 
         try {
             JsonDocument docRequest = tryDesserialize(!request.isEmpty() ? request.c_str() : "{}");
-            Serial.printf("[LOG] [BLE:WRITE]: %s\r\n", request.c_str());
+            log_e("[LOG] [BLE:WRITE]: %s", request.c_str());
 
             JsonDocument response = onWriteCallback(&docRequest);
             docRequest.clear();
@@ -53,7 +53,7 @@ private:
         {
             uint8_t endSignal = 0xFF;
             characteristic->setValue(&endSignal, sizeof(endSignal));
-            Serial.printf("[LOG][BLE:WRITE][E]: %s\n", e.what());
+            log_e("[LOG][BLE:WRITE][E]: %s\n", e.what());
         }
     }
 
@@ -80,15 +80,15 @@ private:
         catch (const std::exception& e)
         {
             uint8_t endSignal = 0xFF;
-            characteristic->setValue(&endSignal, sizeof(endSignal));
-            Serial.printf("[LOG][BLE:READ][E]: %s\r\n", e.what());
+            characteristic->setValue(&endSignal, sizeof(endSignal));                                                                    
+            log_e("[LOG][BLE:READ][E]: %s", e.what());
         }
     }
     void onNotify(NimBLECharacteristic* characteristic) {
         if(isReceivingMessage){
             return;
         }
-        Serial.printf("[LOG][BLE:NOTIFY]: %s\r\n", characteristic->getValue().c_str());
+        log_e("[LOG][BLE:NOTIFY]: %s", characteristic->getValue().c_str());
     }
 
     void sendBLE(NimBLECharacteristic* characteristic, String& value){
@@ -102,7 +102,7 @@ private:
                 string chunckStr = value.substring(offset, offset + chunkSize).c_str();
                 characteristic->setValue(chunckStr);
 
-                // Serial.printf("[%lu][%lu][LOG][BLE:NOTIFY]: %s\r\n", offset, chunkSize, characteristic->getValue().c_str());
+                // log_e("[%lu][%lu][LOG][BLE:NOTIFY]: %s", offset, chunkSize, characteristic->getValue().c_str());
                 characteristic->notify();
 
                 offset += chunkSize;
@@ -111,10 +111,9 @@ private:
         }
         catch (const std::exception& e)
         {
-            Serial.printf("[LOG][BLE:READ][E]: %s\r\n", e.what());
+            log_e("[LOG][BLE:READ][E]: %s", e.what());
         }
         
-        Serial.printf("\r\nfim\r\n");
         uint8_t endSignal = 0xFF;
         characteristic->setValue(&endSignal, sizeof(endSignal));
         characteristic->notify();

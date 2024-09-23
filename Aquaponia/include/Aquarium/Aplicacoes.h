@@ -6,10 +6,10 @@
 using namespace std;
 
 struct aplicacoes {
-    double ml;    
+    double ml = 0.0;    
     time_t dataAplicacao;    
     int type;
-    double deltaPh;
+    double deltaPh = 0.0;
 };
 
 #endif

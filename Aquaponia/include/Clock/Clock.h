@@ -16,12 +16,10 @@ private:
 public:
     Clock() : rtc(PIN_CLOCK_CLK, PIN_CLOCK_DAT, PIN_CLOCK_RST)
     {
-        Serial.print("Iniciando RTC");
+        log_e("Iniciando RTC");
         while(!rtc.begin()){
-            Serial.print(".");
             delay(200);
         }
-        Serial.printf("\r\n");
     }
 
     void setTime(int timezone){
@@ -32,15 +30,15 @@ public:
         throw std::runtime_error("Falha ao obter horario");
       }
 
-      Serial.println(&timeinfo, "%A, %B %d %Y %H:%M:%S zone %Z %z ");
+    //   log_e("%A, %B %d %Y %H:%M:%S zone %Z %z ", &timeinfo);
       setRTC(&timeinfo);
 
-      Serial.println(getDateTimeString());
+    //   log_e("%s", getDateTimeString());
     }
 
     void setRTC(tm *date)
     {
-        Serial.println(date, "%A, %B %d %Y %H:%M:%S zone %Z %z ");
+        // log_e("%A, %B %d %Y %H:%M:%S zone %Z %z ", date);
         if (!isRunningClock())
             rtc.clockEnable(true);
 
@@ -48,7 +46,7 @@ public:
             throw std::runtime_error("Erro ao definir data e hora");
         }
 
-        Serial.println("Sucesso ao definir horario");
+        log_e("Sucesso ao definir horario");
     }
 
     bool isRunningClock()
@@ -67,12 +65,14 @@ public:
     const char * getDateTimeString()
     {
         time_t t = rtc.getEpoch();
-        struct tm *timeinfo = gmtime(&t);
+        tm *timeinfo = gmtime(&t);
 
         static char dateTimeStr[30];
         snprintf(dateTimeStr, sizeof(dateTimeStr), "%02d/%02d/%04d %02d:%02d:%02d",
              timeinfo->tm_mday, timeinfo->tm_mon + 1, timeinfo->tm_year + 1900,
              timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec);
+    
+        free(timeinfo);
         return dateTimeStr;
                     
     }

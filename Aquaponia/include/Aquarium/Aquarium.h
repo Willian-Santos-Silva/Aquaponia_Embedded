@@ -25,10 +25,13 @@ private:
     Memory _memory;
 
     float _temperature;
+    SemaphoreHandle_t semaphoreTemperature;
 
 public:
     Aquarium() : ds(PIN_THERMOCOUPLE)
     {
+        semaphoreTemperature = xSemaphoreCreateBinary();
+        xSemaphoreGive(semaphoreTemperature);
     }
     enum solution { SOLUTION_LOWER, SOLUTION_RAISER };
 
@@ -56,28 +59,29 @@ public:
         ledcWrite(SOLUTION_RAISER, calcPotencia(0));
     }
 
-    void updateTemperature()
-    {
-        if (ds.getNumberOfDevices() == 0){
-            _temperature = -127.0f;
-            return;
-        }
-
-        ds.selectNext();
-        _temperature = ds.getTempC();
-    }
-    
     float readTemperature()
     {
+        if(xSemaphoreTake(semaphoreTemperature, portMAX_DELAY) == pdTRUE) {
+            if (ds.getNumberOfDevices() == 0){
+                _temperature = -127.0f;
+                xSemaphoreGive(semaphoreTemperature);
+                return _temperature;
+            }
+
+            ds.selectNext();
+            _temperature = ds.getTempC();
+            xSemaphoreGive(semaphoreTemperature);
+        }
+        
         return _temperature;
     }
 
     float getPh()
-    {    
+    {
         unsigned long int avgValue; 
         int buf[10],temp;
         
-        float Vmax = 5;
+        float Vmax = 3.3;
         int Dmax = 4095;
         
         for(int i=0;i<10;i++) 
@@ -103,8 +107,9 @@ public:
 
         float pHVol=(float)avgValue*Vmax/Dmax/6;
         float phValue = -3.30 * pHVol + 21.34;
+
         delay(20);
-        
+
         return phValue;
     }
 
