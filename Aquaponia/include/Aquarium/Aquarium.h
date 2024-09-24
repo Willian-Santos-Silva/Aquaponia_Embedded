@@ -21,10 +21,11 @@ using namespace std;
 class Aquarium
 {
 private:
+    OneWire o;
     DS18B20 ds;
     Memory _memory;
 
-    float _temperature;
+    double _temperature;
     SemaphoreHandle_t semaphoreTemperature;
 
 public:
@@ -59,7 +60,7 @@ public:
         ledcWrite(SOLUTION_RAISER, calcPotencia(0));
     }
 
-    float readTemperature()
+    double readTemperature()
     {
         if(xSemaphoreTake(semaphoreTemperature, portMAX_DELAY) == pdTRUE) {
             if (ds.getNumberOfDevices() == 0){
@@ -76,12 +77,12 @@ public:
         return _temperature;
     }
 
-    float getPh()
+    double getPh()
     {
         unsigned long int avgValue; 
         int buf[10],temp;
         
-        float Vmax = 3.3;
+        double Vmax = 3.3;
         int Dmax = 4095;
         
         for(int i=0;i<10;i++) 
@@ -105,8 +106,8 @@ public:
         for(int i=2;i<8;i++)
             avgValue+=buf[i];
 
-        float pHVol=(float)avgValue*Vmax/Dmax/6;
-        float phValue = -3.30 * pHVol + 21.34;
+        double pHVol=(double)avgValue*Vmax/Dmax/6;
+        double phValue = -3.30 * pHVol + 21.34;
 
         delay(20);
 

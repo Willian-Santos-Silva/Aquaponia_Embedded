@@ -80,19 +80,20 @@ void TaskSaveLeitura(){
   while(true){
     try {
       vector<historicoTemperatura> lht = aquariumSetupDevice.read<historicoTemperatura>("/histTemp.bin");
-
       if(lht.size() >= 168)
           lht.erase(lht.begin());
 
       historicoTemperatura ht;
       ht.temperatura = aquarium.readTemperature();
       ht.time = clockUTC.getTimestamp();
+
+      lht.push_back(ht);
+
       aquariumSetupDevice.write<historicoTemperatura>(lht, "/histTemp.bin");
 
+      vector<historicoPh> lhph = aquariumSetupDevice.read<historicoPh>("/histPh.bin");
 
-      vector<historicoPh> lhph = aquariumSetupDevice.read<historicoPh>("/histTemp.bin");
-
-      if(lhph.size() >- 168)
+      if(lhph.size() >= 168)
           lhph.erase(lhph.begin());
 
       historicoPh hph;
@@ -107,7 +108,8 @@ void TaskSaveLeitura(){
     {
         log_e("erro: %s\r\n", e.what());
     }
-    vTaskDelay(3600000 / portTICK_PERIOD_MS);
+    // vTaskDelay(3600000 / portTICK_PERIOD_MS);
+    vTaskDelay(10000 / portTICK_PERIOD_MS);
   }
 }
 
@@ -123,6 +125,7 @@ void TaskSendSystemInformation()
 
       String resultString;
       serializeJson(doc, resultString);
+      serializeJson(doc, Serial);
 
       bleSystemInformationCallback.notify(bleSystemInformationCharacteristic, resultString);
       
@@ -139,9 +142,9 @@ void TaskSendSystemInformation()
 
 void TaskAquariumTemperatureControl()
 {
-  float temperature;
-  float flagTemeperature;
-  float Kp = 2.0f, Ki = 5.0f, Kd = 1.0f;
+  double temperature;
+  double flagTemeperature;
+  double Kp = 2.0f, Ki = 5.0f, Kd = 1.0f;
   double integralError;
   double output;
 
@@ -156,7 +159,7 @@ void TaskAquariumTemperatureControl()
     }
 
     
-    float goalTemperature = (aquarium.getMaxTemperature() - aquarium.getMinTemperature()) / 2 + aquarium.getMinTemperature();
+    double goalTemperature = (aquarium.getMaxTemperature() - aquarium.getMinTemperature()) / 2 + aquarium.getMinTemperature();
     double erro = goalTemperature - temperature;
     integralError += erro;
 
@@ -291,7 +294,7 @@ JsonDocument  getHistTempEndpoint(JsonDocument  *doc)
 
 JsonDocument  SetRTC(JsonDocument  *doc) {
   
-  if (!doc->containsKey("rtc"))
+  if (!(*doc)["rtc"].is<long>())
   {
     throw std::runtime_error("Parametro fora de escopo");
   }
@@ -307,9 +310,9 @@ JsonDocument  updateConfigurationEndpoint(JsonDocument  *doc)
 {
   log_e("[LOG] ATUALIZAR CONFIGURACAO");
 
-  if (!doc->containsKey("min_temperature") || !doc->containsKey("max_temperature") || 
-      !doc->containsKey("min_ph") || !doc->containsKey("max_ph") || 
-      !doc->containsKey("dosagem"))
+  if (!(*doc)["min_temperature"].is<int>() || !(*doc)["max_temperature"].is<int>() || 
+      !(*doc)["min_ph"].is<int>() || !(*doc)["max_ph"].is<int>() || 
+      !(*doc)["dosagem"].is<int>())
   {
     throw std::runtime_error("Parametro fora de escopo");
   }
@@ -441,12 +444,12 @@ void startBLE(){
   // bleHistoricoApplyCharacteristic->setValue("{}");
   
   bleHistoricoTempCallback.onReadCallback = getHistTempEndpoint;
-  bleHistoricoTempCharacteristic = pService->createCharacteristic(CHARACTERISTIC_GET_HIST_TEMP_UUID, NIMBLE_PROPERTY::NOTIFY);
+  bleHistoricoTempCharacteristic = pService->createCharacteristic(CHARACTERISTIC_GET_HIST_TEMP_UUID,  NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::WRITE |  NIMBLE_PROPERTY::NOTIFY);
   bleHistoricoTempCharacteristic->setCallbacks(&bleHistoricoTempCallback);
   bleHistoricoTempCharacteristic->setValue("{}");
   
   bleHistoricoPhGetCallback.onReadCallback = getHistPhEndpoint;
-  bleHistoricoPhCharacteristic = pService->createCharacteristic(CHARACTERISTIC_GET_HIST_PH_UUID, NIMBLE_PROPERTY::NOTIFY);
+  bleHistoricoPhCharacteristic = pService->createCharacteristic(CHARACTERISTIC_GET_HIST_PH_UUID,  NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::WRITE |  NIMBLE_PROPERTY::NOTIFY);
   bleHistoricoPhCharacteristic->setCallbacks(&bleHistoricoPhGetCallback);
   bleHistoricoPhCharacteristic->setValue("{}");
 
@@ -515,21 +518,6 @@ void setup()
   aquariumSetupDevice.begin();
   attachInterrupt(PIN_RESET, reset, RISING);
   aquarium.begin();
-
-
-
-  // vector<routine> l(1);
-  // aquariumSetupDevice.write<routine>(l, "/rotinas.bin");
-  // l.clear();
-  
-  vector<historicoTemperatura> lht(1);
-  aquariumSetupDevice.write<historicoTemperatura>(lht, "/histTemp.bin");
-  lht.clear();
-  
-  vector<historicoPh> lhph(1);
-  aquariumSetupDevice.write<historicoPh>(lhph, "/histPh.bin");
-  lhph.clear(); 
-
 
   startBLE();
   startTasks();

@@ -118,35 +118,37 @@ time_t tmToTimestamp(tm * time) {
 
 JsonDocument  AquariumServices::getHistPh(){
     JsonDocument  doc;
-    JsonArray dataArray = doc.to<JsonArray>();
+    doc["min_ph"] = _aquarium->getMinPh();
+    doc["max_ph"] = _aquarium->getMaxPh();
 
-    vector<historicoPh> list = _setupDevice->read<historicoPh>("/histTemp.bin");
+    JsonArray dataArray = doc["history"].to<JsonArray>();
+
+    vector<historicoPh> list = _setupDevice->read<historicoPh>("/histPh.bin");
+
     for (const auto& data : list) {
-        JsonObject dataObj;
+        JsonObject dataObj = dataArray.add<JsonObject>();
         dataObj["ph"] = data.ph;
         dataObj["timestamp"] = data.time;
-
-        dataArray.add(dataObj);
     }
 
-    dataArray.clear();
-  
     return doc;
 }
 
 JsonDocument  AquariumServices::getHistTemp(){
     JsonDocument  doc;
-    JsonArray dataArray = doc.to<JsonArray>();
+    doc["min_temperatura"] = _aquarium->getMinTemperature();
+    doc["max_temperatura"] = _aquarium->getMaxTemperature();
 
-    vector<historicoTemperatura> list = _setupDevice->read<historicoTemperatura>("/histPh.bin");
+    JsonArray dataArray = doc["history"].to<JsonArray>();
+
+    vector<historicoTemperatura> list = _setupDevice->read<historicoTemperatura>("/histTemp.bin");
+    
     for (const auto& data : list) {
-        JsonObject dataObj;
+        JsonObject dataObj = dataArray.add<JsonObject>();
         dataObj["temperatura"] = data.temperatura;
         dataObj["timestamp"] = data.time;
-        dataArray.add(dataObj);
     }
 
-    dataArray.clear();
   
     return doc;
 }
@@ -248,13 +250,13 @@ aplicacoes AquariumServices::applyRiseSolution(double deltaPh, double acumuladoA
 
     double ml_s = 1.0;
 
-    float initialPh = _aquarium->getPh();
+    double initialPh = _aquarium->getPh();
     int goal = _aquarium->getMinPh() + (_aquarium->getMaxPh() - _aquarium->getMinPh()) / 2;
     
     double maxBufferSolutionMl = AQUARIUM_VOLUME_L /   DOSAGE_RAISE_SOLUTION_ML_L;
 
     while ((acumuladoAplicado + aplicacao.ml + ml_s) <= maxBufferSolutionMl) {
-        float ph = _aquarium->getPh();
+        double ph = _aquarium->getPh();
 
         if (ph >= _aquarium->getMinPh())
         {
@@ -275,13 +277,13 @@ aplicacoes AquariumServices::applyLowerSolution(double deltaPh, double acumulado
     aplicacao.ml = 0.0;
     double ml_s = 1.0;
 
-    float initialPh = _aquarium->getPh();
+    double initialPh = _aquarium->getPh();
     int goal = _aquarium->getMinPh() + (_aquarium->getMaxPh() - _aquarium->getMinPh()) / 2;
     
     double maxAlkalineSolutionMl = AQUARIUM_VOLUME_L / DOSAGE_LOWER_SOLUTION_ML_L;
 
     while ((acumuladoAplicado + aplicacao.ml + ml_s) <= maxAlkalineSolutionMl) {
-        float ph = _aquarium->getPh();
+        double ph = _aquarium->getPh();
 
         if (ph <= _aquarium->getMaxPh())
         {
