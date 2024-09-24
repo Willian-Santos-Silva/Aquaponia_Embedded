@@ -298,11 +298,23 @@ JsonDocument  SetRTC(JsonDocument  *doc) {
   {
     throw std::runtime_error("Parametro fora de escopo");
   }
+
+
   long timestamp =(*doc)["rtc"].as<long>();
-  struct tm timeinfo;
-  localtime_r(&timestamp, &timeinfo);
-  clockUTC.setRTC(&timeinfo);
-  return *doc;
+
+
+  serializeJson(*doc, Serial);
+
+
+  time_t timestamp_t = timestamp;
+  tm * time = gmtime(&timestamp_t);
+  clockUTC.setRTC(time);
+
+  // struct tm timeinfo;
+  // localtime_r(&timestamp, &timeinfo);
+  // clockUTC.setRTC(&timeinfo);
+  JsonDocument  resp;
+  return resp;
 }
 
 

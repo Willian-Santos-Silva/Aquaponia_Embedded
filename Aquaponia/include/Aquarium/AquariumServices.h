@@ -142,7 +142,7 @@ JsonDocument  AquariumServices::getHistTemp(){
     JsonArray dataArray = doc["history"].to<JsonArray>();
 
     vector<historicoTemperatura> list = _setupDevice->read<historicoTemperatura>("/histTemp.bin");
-    
+
     for (const auto& data : list) {
         JsonObject dataObj = dataArray.add<JsonObject>();
         dataObj["temperatura"] = data.temperatura;
@@ -310,7 +310,7 @@ JsonDocument  AquariumServices::getConfiguration(){
     doc["min_ph"] = _aquarium->getMinPh();
     doc["max_ph"] = _aquarium->getMaxPh();
     doc["ppm"] = _aquarium->getPPM();
-    // doc["rtc"] = clockUTC.getDateTime().getFullDate();
+    doc["rtc"] = clockUTC.getTimestamp();
 
     return doc;
 }
