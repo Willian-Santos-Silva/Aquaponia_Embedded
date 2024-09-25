@@ -132,9 +132,9 @@ T(em Kelvin)
 #define ADDRESS_AQUARIUM_MIN_PH                               0x000015
 #define ADDRESS_AQUARIUM_MAX_PH                               0x000019
 #define ADDRESS_DOSAGEM_REDUTOR_PH                            0x00001D
-#define ADDRESS_PPM_PH                                        0x000021
+#define ADDRESS_DOSAGEM_AUMENTADOR_PH                         0x000021
 #define ADDRESS_LAST_APPLICATION_ACID_BUFFER_PH               0x000025
-#define ADDRESS_CYCLE_TIME_WATER_PUMP                         0x000029
+#define ADDRESS_CYCLE_TIME_DOSAGEM                         0x000029
 
 
 

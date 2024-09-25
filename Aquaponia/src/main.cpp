@@ -324,16 +324,33 @@ JsonDocument  updateConfigurationEndpoint(JsonDocument  *doc)
 
   if (!(*doc)["min_temperature"].is<int>() || !(*doc)["max_temperature"].is<int>() || 
       !(*doc)["min_ph"].is<int>() || !(*doc)["max_ph"].is<int>() || 
-      !(*doc)["dosagem"].is<int>())
+      !(*doc)["dosagem_solucao_acida"].is<int>() || !(*doc)["dosagem_solucao_base"].is<int>() || 
+      !(*doc)["tempo_reaplicacao"].is<int>())
   {
     throw std::runtime_error("Parametro fora de escopo");
   }
+  
+  // if (!(*doc)["min_temperature"].is<int>() || !(*doc)["max_temperature"].is<int>())
+  // {
+  //   throw std::runtime_error("Parametro fora de escopo");
+  // }
+
+  // if (!(*doc)["min_ph"].is<int>() || !(*doc)["max_ph"].is<int>())
+  // {
+  //   throw std::runtime_error("Parametro fora de escopo");
+  // }
+
+  // if (!(*doc)["dosagem_solucao_acida"].is<int>() || !(*doc)["dosagem_solucao_base"].is<int>())
+  // {
+  //   throw std::runtime_error("Parametro fora de escopo");
+  // }
 
   aquariumServices.updateConfiguration((*doc)["min_temperature"].as<int>(),
                                        (*doc)["max_temperature"].as<int>(),
                                        (*doc)["ph_max"].as<int>(),
                                        (*doc)["ph_min"].as<int>(),
-                                       (*doc)["dosagem"].as<int>(),
+                                       (*doc)["dosagem_solucao_acida"].as<int>(),
+                                       (*doc)["dosagem_solucao_base"].as<int>(),
                                        (*doc)["tempo_reaplicacao"].as<int>());
   return (*doc);
 }

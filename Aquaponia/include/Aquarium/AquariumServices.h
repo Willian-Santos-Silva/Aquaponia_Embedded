@@ -61,7 +61,7 @@ public:
     AquariumServices(Aquarium *aquarium);
     ~AquariumServices();
 
-    void updateConfiguration(int min_temperature, int max_temperature, int ph_min, int ph_max, int dosagem, int tempo_reaplicacao);
+    void updateConfiguration(int min_temperature, int max_temperature, int ph_min, int ph_max, int dosagem_solucao_acida, int dosagem_solucao_base, int tempo_reaplicacao);
     JsonDocument  getSystemInformation();
     JsonDocument  getHistPh();
     JsonDocument  getHistTemp();
@@ -213,8 +213,8 @@ aplicacoes AquariumServices::applySolution(const vector<aplicacoes>& aplicacaoLi
             hasLast = true;
         }
 
-        if((long)ultimaAplicacao.dataAplicacao - (long)aplicacao.dataAplicacao >= DEFAULT_TIME_DELAY_PH
-        //  || ((long)timestamp - (long)ultimaAplicacao.dataAplicacao) >=  DEFAULT_TIME_DELAY_PH
+        if((long)ultimaAplicacao.dataAplicacao - (long)aplicacao.dataAplicacao >= _aquarium->getTempoReaplicacao()
+         || ((long)timestamp - (long)ultimaAplicacao.dataAplicacao) >=  _aquarium->getTempoReaplicacao()
          )
             break;
 
@@ -231,14 +231,14 @@ aplicacoes AquariumServices::applySolution(const vector<aplicacoes>& aplicacaoLi
     if(solution == Aquarium::SOLUTION_LOWER){
         aplicacao = applyLowerSolution(0, acumuladoAplicado);
         aplicacao.type = solution;
-        // aplicacao.dataAplicacao = timestamp;
+        aplicacao.dataAplicacao = timestamp;
         return aplicacao;
     }
 
     if(solution == Aquarium::SOLUTION_RAISER){
         aplicacao = applyRiseSolution(0, acumuladoAplicado);
         aplicacao.type = solution;
-        // aplicacao.dataAplicacao = timestamp;
+        aplicacao.dataAplicacao = timestamp;
         return aplicacao;
     }
     return aplicacao;
@@ -253,7 +253,7 @@ aplicacoes AquariumServices::applyRiseSolution(double deltaPh, double acumuladoA
     double initialPh = _aquarium->getPh();
     int goal = _aquarium->getMinPh() + (_aquarium->getMaxPh() - _aquarium->getMinPh()) / 2;
     
-    double maxBufferSolutionMl = AQUARIUM_VOLUME_L /   DOSAGE_RAISE_SOLUTION_ML_L;
+    double maxBufferSolutionMl = AQUARIUM_VOLUME_L / _aquarium->getRaiserSolutionDosage();
 
     while ((acumuladoAplicado + aplicacao.ml + ml_s) <= maxBufferSolutionMl) {
         double ph = _aquarium->getPh();
@@ -280,7 +280,7 @@ aplicacoes AquariumServices::applyLowerSolution(double deltaPh, double acumulado
     double initialPh = _aquarium->getPh();
     int goal = _aquarium->getMinPh() + (_aquarium->getMaxPh() - _aquarium->getMinPh()) / 2;
     
-    double maxAlkalineSolutionMl = AQUARIUM_VOLUME_L / DOSAGE_LOWER_SOLUTION_ML_L;
+    double maxAlkalineSolutionMl = AQUARIUM_VOLUME_L / _aquarium->getLowerSolutionDosage();
 
     while ((acumuladoAplicado + aplicacao.ml + ml_s) <= maxAlkalineSolutionMl) {
         double ph = _aquarium->getPh();
@@ -309,7 +309,9 @@ JsonDocument  AquariumServices::getConfiguration(){
     doc["max_temperature"] = _aquarium->getMaxTemperature();
     doc["min_ph"] = _aquarium->getMinPh();
     doc["max_ph"] = _aquarium->getMaxPh();
-    doc["ppm"] = _aquarium->getPPM();
+    doc["dosagem_solucao_acida"] = _aquarium->getLowerSolutionDosage();
+    doc["dosagem_solucao_base"] = _aquarium->getRaiserSolutionDosage();
+    doc["tempo_reaplicacao"] = _aquarium->getTempoReaplicacao();
     doc["rtc"] = clockUTC.getTimestamp();
 
     return doc;
@@ -391,7 +393,7 @@ void AquariumServices::addRoutines(routine* r){
 
     data.clear();
 }
-void AquariumServices::updateConfiguration(int min_temperature, int max_temperature, int ph_min, int ph_max, int dosagem, int tempo_reaplicacao){
+void AquariumServices::updateConfiguration(int min_temperature, int max_temperature, int ph_min, int ph_max, int dosagem_solucao_acida, int dosagem_solucao_base, int tempo_reaplicacao){
     if (!_aquarium->setHeaterAlarm(min_temperature, max_temperature))
     {
       throw std::runtime_error("Falha ao definir intervalo de temperatura, tente novamente");
@@ -400,6 +402,15 @@ void AquariumServices::updateConfiguration(int min_temperature, int max_temperat
     if (!_aquarium->setPhAlarm(ph_min, ph_max))
     {
       throw std::runtime_error("Falha ao definir intervalo de ph, tente novamente");
+    }
+    
+    if (!_aquarium->setRaiserSolutionDosage(dosagem_solucao_base))
+    {
+      throw std::runtime_error("Falha ao definir a dosagem da solução, tente novamente");
+    }
+    if (!_aquarium->setLowerSolutionDosage(dosagem_solucao_acida))
+    {
+      throw std::runtime_error("Falha ao definir a dosagem da solução, tente novamente");
     }
 }
 JsonDocument  AquariumServices::handlerWaterPump() {

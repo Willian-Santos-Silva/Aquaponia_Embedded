@@ -21,7 +21,6 @@ using namespace std;
 class Aquarium
 {
 private:
-    OneWire o;
     DS18B20 ds;
     Memory _memory;
 
@@ -205,24 +204,54 @@ public:
             return;
         }
     }
-
-
-    bool setPPM(int dosagem)
-    {
+    
+    bool setLowerSolutionDosage(int dosagem){
         if (dosagem <= 0)
         {
-            Serial.println("Impossivel definir esse dosagem");
             return false;
         }
 
-        _memory.write<int>(ADDRESS_PPM_PH, dosagem);
+        _memory.write<int>(ADDRESS_DOSAGEM_REDUTOR_PH, dosagem);
         
-        return getPPM() == dosagem;
+        return getLowerSolutionDosage() == dosagem;
     }
 
-    int getPPM()
+    int getLowerSolutionDosage()
     {
-        return _memory.read<int>(ADDRESS_PPM_PH);
+        return _memory.read<int>(ADDRESS_CYCLE_TIME_DOSAGEM);
+    }
+    
+    bool setTempoReaplicacao(long tempo_reaplicacao){
+        if (dosagem <= 0)
+        {
+            return false;
+        }
+
+        _memory.write<int>(ADDRESS_DOSAGEM_REDUTOR_PH, tempo_reaplicacao);
+        
+        return getLowerSolutionDosage() == dosagem;
+    }
+
+    int getTempoReaplicacao()
+    {
+        return _memory.read<long>(ADDRESS_CYCLE_TIME_DOSAGEM);
+    }
+
+
+    bool setRaiserSolutionDosage(int dosagem){
+        if (dosagem <= 0)
+        {
+            return false;
+        }
+
+        _memory.write<int>(ADDRESS_DOSAGEM_AUMENTADOR_PH, dosagem);
+        
+        return getRaiserSolutionDosage() == dosagem;
+    }
+
+    int getRaiserSolutionDosage()
+    {
+        return _memory.read<int>(ADDRESS_DOSAGEM_AUMENTADOR_PH);
     }
 
     int getTurbidity()
@@ -241,6 +270,6 @@ public:
     int calcPotencia(double percentage){
         return 1023 * (percentage / 100.0);
     }
-
+    
 };
 #endif
