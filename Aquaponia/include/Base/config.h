@@ -22,11 +22,11 @@
 #define DELTA_MAXIMO_PH                         0.3
 
 #define AQUARIUM_VOLUME_L                       10
-#define DEFAULT_TIME_DELAY_PH                   30 // SEGUNDOS
+#define DEFAULT_TIME_DELAY_PH                   3600 // SEGUNDOS
 
 #define CHANNEL_SOLUTION_LOWER                  0
 #define CHANNEL_SOLUTION_RAISER                 1
-#define POTENCIA_PERISTAULTIC                   40
+#define POTENCIA_PERISTAULTIC                   40.0
 #define FLUXO_PERISTALTIC_ML_S                  1.68
 
 
@@ -123,18 +123,16 @@ T(em Kelvin)
 
 // ENDERÇOS DE MEMORIA EEMPROM  
 #define EEPROM_SIZE                                           4096      // 4096U - 1U = 1 kB
-#define ADDRESS_START                                         0x000000
-#define ADDRESS_SSID                                          0x000001
-#define ADDRESS_PASSWORD                                      0x000005
-#define ADDRESS_AQUARIUM_TEMPERATURE                          0x000009
-#define ADDRESS_AQUARIUM_MIN_TEMPERATURE                      0x00000D
-#define ADDRESS_AQUARIUM_MAX_TEMPERATURE                      0x000011
-#define ADDRESS_AQUARIUM_MIN_PH                               0x000015
-#define ADDRESS_AQUARIUM_MAX_PH                               0x000019
-#define ADDRESS_DOSAGEM_REDUTOR_PH                            0x00001D
-#define ADDRESS_DOSAGEM_AUMENTADOR_PH                         0x000021
-#define ADDRESS_LAST_APPLICATION_ACID_BUFFER_PH               0x000025
-#define ADDRESS_CYCLE_TIME_DOSAGEM                         0x000029
+
+#define ADDRESS_START                                         0x000000 // bool (1 byte)
+#define ADDRESS_AQUARIUM_MIN_TEMPERATURE                      0x000001 // int (4 bytes)
+#define ADDRESS_AQUARIUM_MAX_TEMPERATURE                      0x000005 // int (4 bytes)
+#define ADDRESS_AQUARIUM_MIN_PH                               0x000009 // int (4 bytes)
+#define ADDRESS_AQUARIUM_MAX_PH                               0x00000D // int (4 bytes)
+#define ADDRESS_DOSAGEM_REDUTOR_PH                            0x000011 // int (4 bytes)
+#define ADDRESS_DOSAGEM_AUMENTADOR_PH                         0x000015 // int (4 bytes)
+#define ADDRESS_CYCLE_TIME_DOSAGEM                            0x000019 // long (8 bytes)
+
 
 
 

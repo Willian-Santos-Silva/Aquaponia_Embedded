@@ -70,11 +70,11 @@ public:
         tm * time = gmtime(&timestamp);
         clockUTC.setRTC(time);
 
-        log_d("%s", _aquarium->setHeaterAlarm(MIN_AQUARIUM_TEMP, MAX_AQUARIUM_TEMP) ? "TEMPERATURAS DEFINIDAS" : "FALHA AO DEFINIR INTERVALO DE TEMPERATURA");
-        log_d("%s", _aquarium->setPhAlarm(MIN_AQUARIUM_PH, MAX_AQUARIUM_PH) ? "PH DEFINIDO" : "FALHA AO DEFINIR INTERVALO DE PH");
-        log_d("%s", _aquarium->setLowerSolutionDosage(DOSAGE_LOWER_SOLUTION_ML_L) ? "DOSAGEM DEFINIDA" : "FALHA AO DEFINIR DOSAGEM");
-        log_d("%s", _aquarium->setRaiserSolutionDosage(DOSAGE_RAISE_SOLUTION_ML_L) ? "DOSAGEM DEFINIDA" : "FALHA AO DEFINIR DOSAGEM");
-        log_d("%s", _aquarium->setTempoReaplicacao(DEFAULT_TIME_DELAY_PH) ? "TEMPO DE REAPLICAÇÃO DEFINIDO" : "FALHA AO DEFINIR TEMPO DE REAPLICAÇÃO");
+        log_e("%s", _aquarium->setHeaterAlarm(MIN_AQUARIUM_TEMP, MAX_AQUARIUM_TEMP) ? "TEMPERATURAS DEFINIDAS" : "FALHA AO DEFINIR INTERVALO DE TEMPERATURA");
+        log_e("%s", _aquarium->setPhAlarm(MIN_AQUARIUM_PH, MAX_AQUARIUM_PH) ? "PH DEFINIDO" : "FALHA AO DEFINIR INTERVALO DE PH");
+        log_e("%s", _aquarium->setLowerSolutionDosage(DOSAGE_LOWER_SOLUTION_ML_L) ? "DOSAGEM DEFINIDA" : "FALHA AO DEFINIR DOSAGEM");
+        log_e("%s", _aquarium->setRaiserSolutionDosage(DOSAGE_RAISE_SOLUTION_ML_L) ? "DOSAGEM DEFINIDA" : "FALHA AO DEFINIR DOSAGEM");
+        log_e("%s", _aquarium->setTempoReaplicacao(DEFAULT_TIME_DELAY_PH) ? "TEMPO DE REAPLICAÇÃO DEFINIDO" : "FALHA AO DEFINIR TEMPO DE REAPLICAÇÃO");
 
         removeIfExists("/rotinas.bin");
         removeIfExists("/pump.bin");

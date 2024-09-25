@@ -108,8 +108,7 @@ void TaskSaveLeitura(){
     {
         log_e("erro: %s\r\n", e.what());
     }
-    // vTaskDelay(3600000 / portTICK_PERIOD_MS);
-    vTaskDelay(10000 / portTICK_PERIOD_MS);
+    vTaskDelay(pdMS_TO_TICKS(3600000.0));
   }
 }
 
@@ -120,12 +119,11 @@ void TaskSendSystemInformation()
   {
     try
     {
-      log_e("[LOG] ENVIO INFORMACAO SISTEMA");
+      // log_e("[LOG] ENVIO INFORMACAO SISTEMA");
       JsonDocument  doc = aquariumServices.getSystemInformation();
 
       String resultString;
       serializeJson(doc, resultString);
-      serializeJson(doc, Serial);
 
       bleSystemInformationCallback.notify(bleSystemInformationCharacteristic, resultString);
       
@@ -136,7 +134,7 @@ void TaskSendSystemInformation()
         log_e("erro: %s\r\n", e.what());
     }
 
-    vTaskDelay(5000 / portTICK_PERIOD_MS);
+    vTaskDelay(pdMS_TO_TICKS(5000.0));
   }
 }
 
@@ -154,10 +152,9 @@ void TaskAquariumTemperatureControl()
     if (temperature == -127.0f)
     {
       aquarium.setStatusHeater(LOW);
-      vTaskDelay(1000 / portTICK_PERIOD_MS);
+      vTaskDelay(pdMS_TO_TICKS(1000.0));
       continue;
     }
-
     
     double goalTemperature = (aquarium.getMaxTemperature() - aquarium.getMinTemperature()) / 2 + aquarium.getMinTemperature();
     double erro = goalTemperature - temperature;
@@ -168,7 +165,7 @@ void TaskAquariumTemperatureControl()
 
     aquarium.setStatusHeater(output < 0);
 
-    vTaskDelay(1000 / portTICK_PERIOD_MS);
+    vTaskDelay(pdMS_TO_TICKS(1000.0));
   }
 }
 
@@ -188,7 +185,7 @@ void TaskWaterPump()
     {
       log_e("[erro] [WATER INFORMATION]: %s\r\n", e.what());
     }
-    vTaskDelay(1000 / portTICK_PERIOD_MS);
+    vTaskDelay(pdMS_TO_TICKS(1000.0));
   }
 }
 
@@ -198,24 +195,54 @@ void TaskPeristaultic()
   {
     try
     {
-      aquariumServices.controlPeristaultic();
-      vTaskDelay(1000 / portTICK_PERIOD_MS);
+      Serial.printf("peristaultic\r\n");
+
+      vector<aplicacoes> aplicacaoList = aquariumSetupDevice.read<aplicacoes>("/pump.bin");
+
+      aplicacoes applyRaiser = aquariumServices.applySolution(aplicacaoList, Aquarium::SOLUTION_RAISER);
+
+      if(applyRaiser.ml > 0.0) {
+          log_e("Dosagem Raiser: %lf", applyRaiser.ml);
+
+          aplicacaoList.push_back(applyRaiser);
+
+          if(aplicacaoList.size() > 10)
+              aplicacaoList.erase(aplicacaoList.begin());
+
+          aquariumSetupDevice.write<aplicacoes>(aplicacaoList, "/pump.bin");
+      }
+
+
+      aplicacoes applyLower = aquariumServices.applySolution(aplicacaoList, Aquarium::SOLUTION_LOWER);
+      if(applyLower.ml > 0.0){
+          log_e("Dosagem Lower: %lf", applyLower.ml);
+
+          aplicacaoList.push_back(applyLower);
+          
+          if(aplicacaoList.size() > 10)
+              aplicacaoList.erase(aplicacaoList.begin());
+              
+          aquariumSetupDevice.write<aplicacoes>(aplicacaoList, "/pump.bin");
+      }
+
+      aplicacaoList.clear();
+
     }
     catch (const std::exception& e)
     {
       log_e("[erro] [PERISTAULTIC INFORMATION]: %s\r\n", e.what());
     }
 
-    vTaskDelay(500 / portTICK_PERIOD_MS);
+    vTaskDelay(pdMS_TO_TICKS(1000.0));
   }
 }
 
 void startTasks(){
-  taskTemperatureControl.begin(&TaskAquariumTemperatureControl, "TemperatureAquarium", 1300, 2);
-  taskWaterPump.begin(&TaskWaterPump, "WaterPump",3000, 3);
-  taskSendInfo.begin(&TaskSendSystemInformation, "SendInfo", 5000, 4);
   taskPeristaultic.begin(&TaskPeristaultic, "Peristautic", 5000, 1);
+  taskTemperatureControl.begin(&TaskAquariumTemperatureControl, "TemperatureAquarium", 1300, 2);
   taskSaveLeitura.begin(&TaskSaveLeitura, "SaveTemperatura", 5000, 3);
+  taskWaterPump.begin(&TaskWaterPump, "WaterPump", 3000, 4);
+  taskSendInfo.begin(&TaskSendSystemInformation, "SendInfo", 5000, 5);
 }
 
 
@@ -225,7 +252,7 @@ void startTasks(){
 // // ============================================================================================
 
 void  reset() {
-  log_e("Reset");
+  // log_e("Reset");
   memory.clear();
   ESP.restart();
 }
@@ -233,11 +260,11 @@ void  reset() {
 // Callback para conexão e desconexão
 class MyServerCallbacks: public NimBLEServerCallbacks {
     void onConnect(BLEServer* pServer) {
-        log_e("Cliente conectado");
+        // log_e("Cliente conectado");
     }
 
     void onDisconnect(BLEServer* pServer) {
-        log_e("Cliente desconectado");
+        // log_e("Cliente desconectado");
         pServer->getAdvertising()->start();
     }
 };
@@ -246,7 +273,7 @@ class MyServerCallbacks: public NimBLEServerCallbacks {
 JsonDocument  getHistPhEndpoint(JsonDocument  *doc)
 {
   try {
-    log_e("[LOG] GET PH");
+    // log_e("[LOG] GET PH");
     return aquariumServices.getHistPh();
   }
   catch(const std::exception& e)
@@ -262,7 +289,7 @@ JsonDocument  getHistPhEndpoint(JsonDocument  *doc)
 JsonDocument  getHistApplyEndpoint(JsonDocument  *doc)
 {
   try {
-    log_e("[LOG] GET APPLY");
+    // log_e("[LOG] GET APPLY");
     return aquariumServices.getHistPh();
   }
   catch(const std::exception& e)
@@ -278,7 +305,7 @@ JsonDocument  getHistApplyEndpoint(JsonDocument  *doc)
 JsonDocument  getHistTempEndpoint(JsonDocument  *doc)
 {
   try {
-    log_e("[LOG] GET TEMPERATURA");
+    // log_e("[LOG] GET TEMPERATURA");
     return aquariumServices.getHistTemp();
   }
   catch(const std::exception& e)
@@ -320,50 +347,54 @@ JsonDocument  SetRTC(JsonDocument  *doc) {
 
 JsonDocument  updateConfigurationEndpoint(JsonDocument  *doc)
 {
-  log_e("[LOG] ATUALIZAR CONFIGURACAO");
+  // log_e("[LOG] ATUALIZAR CONFIGURACAO");
 
-  if (!(*doc)["min_temperature"].is<int>() || !(*doc)["max_temperature"].is<int>() || 
-      !(*doc)["min_ph"].is<int>() || !(*doc)["max_ph"].is<int>() || 
-      !(*doc)["dosagem_solucao_acida"].is<int>() || !(*doc)["dosagem_solucao_base"].is<int>() || 
-      !(*doc)["tempo_reaplicacao"].is<int>())
+  try
   {
-    throw std::runtime_error("Parametro fora de escopo");
+    if (!(*doc)["min_temperature"].is<int>() || !(*doc)["max_temperature"].is<int>() || 
+        !(*doc)["min_ph"].is<int>() || !(*doc)["max_ph"].is<int>() || 
+        !(*doc)["dosagem_solucao_acida"].is<int>() || !(*doc)["dosagem_solucao_base"].is<int>() || 
+        !(*doc)["tempo_reaplicacao"].is<long>())
+    {
+      throw std::runtime_error("Parametro fora de escopo");
+    }
+      
+    Serial.printf("min_temperature: %i\r\n",        (*doc)["min_temperature"].as<int>());
+    Serial.printf("max_temperature: %i\r\n",        (*doc)["max_temperature"].as<int>());
+    Serial.printf("min_ph: %i\r\n",                 (*doc)["min_ph"].as<int>());
+    Serial.printf("max_ph: %i\r\n",                 (*doc)["max_ph"].as<int>());
+    Serial.printf("dosagem_solucao_acida: %i\r\n",  (*doc)["dosagem_solucao_acida"].as<int>());
+    Serial.printf("dosagem_solucao_base: %i\r\n",   (*doc)["dosagem_solucao_base"].as<int>());
+    Serial.printf("tempo_reaplicacao: %ld\r\n",     (*doc)["tempo_reaplicacao"].as<long>());
+
+
+    aquariumServices.updateConfiguration((*doc)["min_temperature"].as<int>(),
+                                         (*doc)["max_temperature"].as<int>(),
+                                         (*doc)["min_ph"].as<int>(),
+                                         (*doc)["max_ph"].as<int>(),
+                                         (*doc)["dosagem_solucao_acida"].as<int>(),
+                                         (*doc)["dosagem_solucao_base"].as<int>(),
+                                         (*doc)["tempo_reaplicacao"].as<long>());
+    JsonDocument  resp;
+    return resp;
   }
-  
-  // if (!(*doc)["min_temperature"].is<int>() || !(*doc)["max_temperature"].is<int>())
-  // {
-  //   throw std::runtime_error("Parametro fora de escopo");
-  // }
-
-  // if (!(*doc)["min_ph"].is<int>() || !(*doc)["max_ph"].is<int>())
-  // {
-  //   throw std::runtime_error("Parametro fora de escopo");
-  // }
-
-  // if (!(*doc)["dosagem_solucao_acida"].is<int>() || !(*doc)["dosagem_solucao_base"].is<int>())
-  // {
-  //   throw std::runtime_error("Parametro fora de escopo");
-  // }
-
-  aquariumServices.updateConfiguration((*doc)["min_temperature"].as<int>(),
-                                       (*doc)["max_temperature"].as<int>(),
-                                       (*doc)["ph_max"].as<int>(),
-                                       (*doc)["ph_min"].as<int>(),
-                                       (*doc)["dosagem_solucao_acida"].as<int>(),
-                                       (*doc)["dosagem_solucao_base"].as<int>(),
-                                       (*doc)["tempo_reaplicacao"].as<int>());
-  return (*doc);
+  catch(const std::exception& e)
+  {
+    log_e("[callback] erro: %s\r\n", e.what());
+    JsonDocument  resp;
+    return resp;
+  }
 }
 JsonDocument  getConfigurationEndpoint(JsonDocument  *doc)
 {
-  log_e("[LOG] GET CONFIGURACAO"); 
+  // log_e("[LOG] GET CONFIGURACAO"); 
 
   return aquariumServices.getConfiguration();
 }
 JsonDocument  getRoutinesEndpoint(JsonDocument  *doc)
 {
   try {
-    log_e("[LOG] GET ROTINAS");
+    // log_e("[LOG] GET ROTINAS");
     return aquariumServices.getRoutines();
   }
   catch(const std::exception& e)
@@ -376,7 +407,7 @@ JsonDocument  getRoutinesEndpoint(JsonDocument  *doc)
 }
 JsonDocument  setRoutinesEndpoint(JsonDocument  *doc)
 {
-  log_e("[LOG] ATUALIZAR ROTINAS");
+  // log_e("[LOG] ATUALIZAR ROTINAS");
   JsonDocument  resp;
   resp["status_code"] = 200;
 
@@ -406,7 +437,7 @@ JsonDocument  setRoutinesEndpoint(JsonDocument  *doc)
 
 JsonDocument  createRoutinesEndpoint(JsonDocument  *doc)
 {
-  log_e("[LOG] CRIAR ROTINA");
+  // log_e("[LOG] CRIAR ROTINA");
 
   routine* r = new routine();
   strncpy(r->id, (*doc)["id"].as<const char*>(), 36);
@@ -429,8 +460,7 @@ JsonDocument  createRoutinesEndpoint(JsonDocument  *doc)
   aquariumServices.addRoutines(r);
   
   delete r;
-  log_e("SUCESSO");
-  serializeJson((*doc), Serial);
+  
   JsonDocument resp;
   resp["status_code"] = 200;
 
@@ -438,7 +468,7 @@ JsonDocument  createRoutinesEndpoint(JsonDocument  *doc)
 }
 JsonDocument  deleteRoutinesEndpoint(JsonDocument  *doc)
 {
-  log_e("[LOG] DELETAR ROTINA");
+  // log_e("[LOG] DELETAR ROTINA");
   JsonDocument resp;
   resp["status_code"] = 200;
 

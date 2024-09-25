@@ -18,7 +18,6 @@ using namespace std;
 JsonDocument  routineVectorToJSON(vector<routine> & data) {
   JsonDocument doc;
   JsonArray dataArray = doc.to<JsonArray>();
-  Serial.printf("\r\nSize: %lu\r\n", data.size());
   for (const auto& r : data) {
       JsonObject rotina = dataArray.add<JsonObject>();
       rotina["id"] = r.id;
@@ -36,12 +35,7 @@ JsonDocument  routineVectorToJSON(vector<routine> & data) {
           rotina["horarios"][i]["start"] = h.start;
           rotina["horarios"][i]["end"] = h.end;
       }
-    //   dataArray.add<JsonObject>();
   }
-  Serial.printf("\r\n======================\r\n");
-    serializeJson(doc, Serial);
-  Serial.printf("\r\n======================\r\n");
-  
   return doc;
 }
 
@@ -52,16 +46,12 @@ private:
     Clock clockUTC;
     SetupDevice* _setupDevice;
 
-    aplicacoes applySolution(const vector<aplicacoes>& aplicacaoList, Aquarium::solution so);
-    aplicacoes applyRiseSolution(double deltaPh, double acumuladoAplicado);
-    aplicacoes applyLowerSolution(double deltaPh, double acumuladoAplicado);
-    void handlerWaterPump(Date now);
-    
+
 public:
     AquariumServices(Aquarium *aquarium);
     ~AquariumServices();
 
-    void updateConfiguration(int min_temperature, int max_temperature, int ph_min, int ph_max, int dosagem_solucao_acida, int dosagem_solucao_base, int tempo_reaplicacao);
+    void updateConfiguration(int min_temperature, int max_temperature, int ph_min, int ph_max, int dosagem_solucao_acida, int dosagem_solucao_base, long tempo_reaplicacao);
     JsonDocument  getSystemInformation();
     JsonDocument  getHistPh();
     JsonDocument  getHistTemp();
@@ -71,6 +61,10 @@ public:
     void addRoutines(routine* r);
     void removeRoutine(char id[36]);
     void controlPeristaultic();
+
+    aplicacoes applySolution(const vector<aplicacoes>& aplicacaoList, Aquarium::solution so);
+    aplicacoes applyRiseSolution(double deltaPh, double acumuladoAplicado);
+    aplicacoes applyLowerSolution(double deltaPh, double acumuladoAplicado);
     JsonDocument  handlerWaterPump();
 };
 
@@ -98,7 +92,6 @@ JsonDocument  AquariumServices::getSystemInformation()
 
 
 const char* printData(time_t *data) {
-
     struct tm *timeinfo = gmtime(data);
 
     static char dateTimeStr[30];
@@ -106,8 +99,6 @@ const char* printData(time_t *data) {
         timeinfo->tm_mday, timeinfo->tm_mon + 1, timeinfo->tm_year + 1900,
         timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec);
 
-    // log_e("DATA: %s", dateTimeStr);
-    free(timeinfo);
     return dateTimeStr;
 }
 
@@ -198,7 +189,7 @@ aplicacoes AquariumServices::applySolution(const vector<aplicacoes>& aplicacaoLi
     double deltaPh;
     double acumuladoAplicado = 0;
 
-    // time_t timestamp = clockUTC.getTimestamp(); 
+    time_t timestamp = clockUTC.getTimestamp(); 
 
     for (uint32_t i = aplicacaoList.size(); i > 0; i--) {
         aplicacoes aplicacao = aplicacaoList[i - 1];
@@ -214,16 +205,15 @@ aplicacoes AquariumServices::applySolution(const vector<aplicacoes>& aplicacaoLi
         }
 
         if((long)ultimaAplicacao.dataAplicacao - (long)aplicacao.dataAplicacao >= _aquarium->getTempoReaplicacao()
-         || ((long)timestamp - (long)ultimaAplicacao.dataAplicacao) >=  _aquarium->getTempoReaplicacao()
-         )
+         || ((long)timestamp - (long)ultimaAplicacao.dataAplicacao) >=  _aquarium->getTempoReaplicacao())
             break;
 
         acumuladoAplicado += aplicacao.ml;
     }
 
-    // if(hasLast){
-    //     log_e("DATA ULTIMA: %s", printData(&ultimaAplicacao.dataAplicacao));
-    // }
+    if(hasLast){
+        log_e("DATA ULTIMA: %s", printData(&ultimaAplicacao.dataAplicacao));
+    }
     // free(timeUltimaAplicacao);
     
     aplicacoes aplicacao;
@@ -253,7 +243,7 @@ aplicacoes AquariumServices::applyRiseSolution(double deltaPh, double acumuladoA
     double initialPh = _aquarium->getPh();
     int goal = _aquarium->getMinPh() + (_aquarium->getMaxPh() - _aquarium->getMinPh()) / 2;
     
-    double maxBufferSolutionMl = AQUARIUM_VOLUME_L / _aquarium->getRaiserSolutionDosage();
+    double maxBufferSolutionMl = AQUARIUM_VOLUME_L / static_cast<double>(_aquarium->getRaiserSolutionDosage());
 
     while ((acumuladoAplicado + aplicacao.ml + ml_s) <= maxBufferSolutionMl) {
         double ph = _aquarium->getPh();
@@ -267,7 +257,7 @@ aplicacoes AquariumServices::applyRiseSolution(double deltaPh, double acumuladoA
         
         aplicacao.ml += ml_s;
         deltaPh = ph - initialPh;
-        vTaskDelay(10 / portTICK_PERIOD_MS);
+        vTaskDelay(pdMS_TO_TICKS(100));
     }
     return aplicacao;
 }
@@ -280,7 +270,7 @@ aplicacoes AquariumServices::applyLowerSolution(double deltaPh, double acumulado
     double initialPh = _aquarium->getPh();
     int goal = _aquarium->getMinPh() + (_aquarium->getMaxPh() - _aquarium->getMinPh()) / 2;
     
-    double maxAlkalineSolutionMl = AQUARIUM_VOLUME_L / _aquarium->getLowerSolutionDosage();
+    double maxAlkalineSolutionMl = AQUARIUM_VOLUME_L / static_cast<double>(_aquarium->getLowerSolutionDosage());
 
     while ((acumuladoAplicado + aplicacao.ml + ml_s) <= maxAlkalineSolutionMl) {
         double ph = _aquarium->getPh();
@@ -294,7 +284,8 @@ aplicacoes AquariumServices::applyLowerSolution(double deltaPh, double acumulado
         
         aplicacao.ml += ml_s;
         deltaPh = ph - initialPh;
-        vTaskDelay(10 / portTICK_PERIOD_MS);
+
+        vTaskDelay(pdMS_TO_TICKS(100));
     }
     aplicacao.deltaPh = deltaPh;
 
@@ -393,25 +384,40 @@ void AquariumServices::addRoutines(routine* r){
 
     data.clear();
 }
-void AquariumServices::updateConfiguration(int min_temperature, int max_temperature, int ph_min, int ph_max, int dosagem_solucao_acida, int dosagem_solucao_base, int tempo_reaplicacao){
+void AquariumServices::updateConfiguration(int min_temperature, int max_temperature, int ph_min, int ph_max, int dosagem_solucao_acida, int dosagem_solucao_base, long tempo_reaplicacao){
     if (!_aquarium->setHeaterAlarm(min_temperature, max_temperature))
     {
-      throw std::runtime_error("Falha ao definir intervalo de temperatura, tente novamente");
+        throw std::runtime_error("Falha ao definir intervalo de temperatura, tente novamente");
     }
 
     if (!_aquarium->setPhAlarm(ph_min, ph_max))
     {
-      throw std::runtime_error("Falha ao definir intervalo de ph, tente novamente");
+        throw std::runtime_error("Falha ao definir intervalo de ph, tente novamente");
+    }
+    if (!_aquarium->setLowerSolutionDosage(dosagem_solucao_acida))
+    {
+        throw std::runtime_error("Falha ao definir a dosagem da solução, tente novamente");
     }
     
     if (!_aquarium->setRaiserSolutionDosage(dosagem_solucao_base))
     {
-      throw std::runtime_error("Falha ao definir a dosagem da solução, tente novamente");
+        throw std::runtime_error("Falha ao definir a dosagem da solução, tente novamente");
     }
-    if (!_aquarium->setLowerSolutionDosage(dosagem_solucao_acida))
-    {
-      throw std::runtime_error("Falha ao definir a dosagem da solução, tente novamente");
-    }
+
+    
+    Serial.printf("\r\nSETADOS\r\n");
+
+    
+    Serial.printf("min_temperature: %i\r\n",        _aquarium->getMinTemperature());
+    Serial.printf("max_temperature: %i\r\n",        _aquarium->getMaxTemperature());
+    Serial.printf("min_ph: %i\r\n",                 _aquarium->getMinPh());
+    Serial.printf("max_ph: %i\r\n",                 _aquarium->getMaxPh());
+    Serial.printf("dosagem_solucao_acida: %i\r\n",  _aquarium->getLowerSolutionDosage());
+    Serial.println(_aquarium->getRaiserSolutionDosage());
+    Serial.printf("tempo_reaplicacao: %ld\r\n",     _aquarium->getTempoReaplicacao());
+
+    Serial.printf("\r\nSETADOS\r\n");
+
 }
 JsonDocument  AquariumServices::handlerWaterPump() {
     JsonDocument  doc;
@@ -446,34 +452,4 @@ JsonDocument  AquariumServices::handlerWaterPump() {
     rotinas.clear();
     return doc;
 }
-
-void AquariumServices::handlerWaterPump(Date now) {
-    try
-    {
-        vector<routine> rotinas = _setupDevice->read<routine>("/rotinas.bin");
-        for (const auto& r : rotinas) {
-            if(r.weekday[now.day_of_week]){
-                for (int i = 0; i < 720; i++) {
-                    horario h = r.horarios[i];
-
-                    if(h.start == 1441 || h.end == 1441)
-                        continue;
-                        
-                    if((now.hour * 60 + now.minute) >= h.start  && (now.hour * 60 + now.minute) < h.end){
-                        _aquarium->setWaterPumpStatus(HIGH);
-                        return;
-                    }
-                    _aquarium->setWaterPumpStatus(LOW);
-                }
-            }
-        }
-        rotinas.clear();
-    }
-    catch (const std::exception& e)
-    {
-        String err = e.what();
-        Serial.println("description: " + err);
-    }
-}
-
 #endif

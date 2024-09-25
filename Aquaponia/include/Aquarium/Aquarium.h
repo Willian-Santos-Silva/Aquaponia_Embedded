@@ -187,7 +187,7 @@ public:
             ledcWrite(SOLUTION_RAISER, calcPotencia(0));
             ledcWrite(SOLUTION_LOWER, calcPotencia(POTENCIA_PERISTAULTIC));
 
-            vTaskDelay((time * 1000.0) / portTICK_PERIOD_MS);
+            vTaskDelay(pdMS_TO_TICKS(time * 1000.0));
             
             ledcWrite(SOLUTION_LOWER, calcPotencia(0));
 
@@ -198,8 +198,8 @@ public:
             ledcWrite(SOLUTION_LOWER, calcPotencia(0));
             ledcWrite(SOLUTION_RAISER, calcPotencia(POTENCIA_PERISTAULTIC));
 
-            vTaskDelay((time * 1000.0) / portTICK_PERIOD_MS);
-            
+            vTaskDelay(pdMS_TO_TICKS(time * 1000.0));
+
             ledcWrite(SOLUTION_RAISER, calcPotencia(0));
             return;
         }
@@ -218,26 +218,9 @@ public:
 
     int getLowerSolutionDosage()
     {
-        return _memory.read<int>(ADDRESS_CYCLE_TIME_DOSAGEM);
+        return _memory.read<int>(ADDRESS_DOSAGEM_REDUTOR_PH);
     }
     
-    bool setTempoReaplicacao(long tempo_reaplicacao){
-        if (dosagem <= 0)
-        {
-            return false;
-        }
-
-        _memory.write<int>(ADDRESS_DOSAGEM_REDUTOR_PH, tempo_reaplicacao);
-        
-        return getLowerSolutionDosage() == dosagem;
-    }
-
-    int getTempoReaplicacao()
-    {
-        return _memory.read<long>(ADDRESS_CYCLE_TIME_DOSAGEM);
-    }
-
-
     bool setRaiserSolutionDosage(int dosagem){
         if (dosagem <= 0)
         {
@@ -253,6 +236,18 @@ public:
     {
         return _memory.read<int>(ADDRESS_DOSAGEM_AUMENTADOR_PH);
     }
+
+    bool setTempoReaplicacao(long tempo_reaplicacao) {
+        _memory.write<int>(ADDRESS_CYCLE_TIME_DOSAGEM, tempo_reaplicacao);
+        
+        return getTempoReaplicacao() == tempo_reaplicacao;
+    }
+
+    long getTempoReaplicacao()
+    {
+        return _memory.read<long>(ADDRESS_CYCLE_TIME_DOSAGEM);
+    }
+
 
     int getTurbidity()
     {

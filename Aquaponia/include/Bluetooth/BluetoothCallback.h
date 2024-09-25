@@ -41,7 +41,7 @@ private:
 
         try {
             JsonDocument docRequest = tryDesserialize(!request.isEmpty() ? request.c_str() : "{}");
-            log_e("[LOG] [BLE:WRITE]: %s", request.c_str());
+            Serial.printf("[LOG] [BLE:WRITE]: %s\r\n", request.c_str());
 
             JsonDocument response = onWriteCallback(&docRequest);
             docRequest.clear();
@@ -53,7 +53,7 @@ private:
         {
             uint8_t endSignal = 0xFF;
             characteristic->setValue(&endSignal, sizeof(endSignal));
-            log_e("[LOG][BLE:WRITE][E]: %s\n", e.what());
+            log_e("[LOG][BLE:WRITE][E]: %s", e.what());
         }
     }
 
@@ -88,7 +88,7 @@ private:
         if(isReceivingMessage){
             return;
         }
-        log_e("[LOG][BLE:NOTIFY]: %s", characteristic->getValue().c_str());
+        // Serial.printf("[LOG][BLE:NOTIFY]: %s\r\n", characteristic->getValue().c_str());
     }
 
     void sendBLE(NimBLECharacteristic* characteristic, String& value){
@@ -102,7 +102,6 @@ private:
                 string chunckStr = value.substring(offset, offset + chunkSize).c_str();
                 characteristic->setValue(chunckStr);
 
-                // log_e("[%lu][%lu][LOG][BLE:NOTIFY]: %s", offset, chunkSize, characteristic->getValue().c_str());
                 characteristic->notify();
 
                 offset += chunkSize;
@@ -157,6 +156,6 @@ BluetoothCallback::~BluetoothCallback()
 
 void BluetoothCallback::notify(NimBLECharacteristic* characteristic, String &value)
 {
-        sendBLE(characteristic, value);
+    sendBLE(characteristic, value);
 }
 #endif
