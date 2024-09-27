@@ -204,19 +204,28 @@ aplicacoes AquariumServices::applySolution(const vector<aplicacoes>& aplicacaoLi
             hasLast = true;
         }
 
+        acumuladoAplicado += aplicacao.ml;   
+        // Serial.printf("diferenca: %lu | tempo: %lu | diferencaa: %lu \r\n", ((long)ultimaAplicacao.dataAplicacao - (long)aplicacao.dataAplicacao), _aquarium->getTempoReaplicacao(), ((long)timestamp - (long)ultimaAplicacao.dataAplicacao));
         if((long)ultimaAplicacao.dataAplicacao - (long)aplicacao.dataAplicacao >= _aquarium->getTempoReaplicacao()
-         || ((long)timestamp - (long)ultimaAplicacao.dataAplicacao) >=  _aquarium->getTempoReaplicacao())
+         || ((long)timestamp - (long)ultimaAplicacao.dataAplicacao) >=  _aquarium->getTempoReaplicacao()){
+            
+            Serial.printf("pare\r\n");
             break;
-
-        acumuladoAplicado += aplicacao.ml;
+         }
+        
     }
+
+    aplicacoes aplicacao;
 
     if(hasLast){
-        log_e("DATA ULTIMA: %s", printData(&ultimaAplicacao.dataAplicacao));
+        Serial.printf("DATA ULTIMA: %s\r\n", printData(&ultimaAplicacao.dataAplicacao));
+
+        if ((long)ultimaAplicacao.dataAplicacao == timestamp) {
+            return aplicacao;
+        }
     }
     // free(timeUltimaAplicacao);
-    
-    aplicacoes aplicacao;
+    Serial.printf("acumulado: %e \r\n", acumuladoAplicado);
 
     if(solution == Aquarium::SOLUTION_LOWER){
         aplicacao = applyLowerSolution(0, acumuladoAplicado);
@@ -396,14 +405,18 @@ void AquariumServices::updateConfiguration(int min_temperature, int max_temperat
     }
     if (!_aquarium->setLowerSolutionDosage(dosagem_solucao_acida))
     {
-        throw std::runtime_error("Falha ao definir a dosagem da solução, tente novamente");
+        throw std::runtime_error("Falha ao definir a dosagem da solução acida, tente novamente");
     }
     
     if (!_aquarium->setRaiserSolutionDosage(dosagem_solucao_base))
     {
-        throw std::runtime_error("Falha ao definir a dosagem da solução, tente novamente");
+        throw std::runtime_error("Falha ao definir a dosagem da solução base, tente novamente");
     }
 
+    if (!_aquarium->setTempoReaplicacao(tempo_reaplicacao))
+    {
+        throw std::runtime_error("Falha ao definir a dosagem da solução base, tente novamente");
+    }
     
     Serial.printf("\r\nSETADOS\r\n");
 
@@ -413,7 +426,7 @@ void AquariumServices::updateConfiguration(int min_temperature, int max_temperat
     Serial.printf("min_ph: %i\r\n",                 _aquarium->getMinPh());
     Serial.printf("max_ph: %i\r\n",                 _aquarium->getMaxPh());
     Serial.printf("dosagem_solucao_acida: %i\r\n",  _aquarium->getLowerSolutionDosage());
-    Serial.println(_aquarium->getRaiserSolutionDosage());
+    Serial.printf("dosagem_solucao_base: %i\r\n",  _aquarium->getRaiserSolutionDosage());
     Serial.printf("tempo_reaplicacao: %ld\r\n",     _aquarium->getTempoReaplicacao());
 
     Serial.printf("\r\nSETADOS\r\n");

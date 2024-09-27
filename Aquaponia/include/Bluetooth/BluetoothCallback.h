@@ -9,6 +9,7 @@
 #include "base64.h"
 
 #include <NimBLEDevice.h>
+#include "soc/rtc_wdt.h"
 
 
 // SemaphoreHandle_t isNotify = xSemaphoreCreateBinary();
@@ -23,6 +24,11 @@ private:
 
 
     void onWrite(NimBLECharacteristic* characteristic) {
+        
+        rtc_wdt_protect_off();    // Turns off the automatic wdt service
+        rtc_wdt_enable();         // Turn it on manually
+        rtc_wdt_set_time(RTC_WDT_STAGE0, 20000);  // Define how long you desire to let dog wait.
+        
         String value = characteristic->getValue().c_str();
 
         if(value.charAt(value.length() - 1) != 0xFF){
@@ -55,6 +61,9 @@ private:
             characteristic->setValue(&endSignal, sizeof(endSignal));
             log_e("[LOG][BLE:WRITE][E]: %s", e.what());
         }
+
+        rtc_wdt_disable();
+        rtc_wdt_protect_on();
     }
 
     void onRead(NimBLECharacteristic* characteristic) {
@@ -83,6 +92,7 @@ private:
             characteristic->setValue(&endSignal, sizeof(endSignal));                                                                    
             log_e("[LOG][BLE:READ][E]: %s", e.what());
         }
+        vTaskDelay(pdMS_TO_TICKS(3.0));
     }
     void onNotify(NimBLECharacteristic* characteristic) {
         if(isReceivingMessage){
@@ -106,6 +116,7 @@ private:
 
                 offset += chunkSize;
                 chunckStr.clear();
+                vTaskDelay(pdMS_TO_TICKS(1));
             }
         }
         catch (const std::exception& e)

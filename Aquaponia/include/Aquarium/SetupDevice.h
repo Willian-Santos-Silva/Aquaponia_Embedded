@@ -35,9 +35,6 @@ private:
         
         File file = SPIFFS.open(fileFullPath, mode);
         if (!file) {
-            Serial.println("Arquivo nao existe");
-            
-            // SPIFFS.end();
             throw std::runtime_error("Erro ao abrir o arquivo para leitura");
         }
         return file;
@@ -60,9 +57,6 @@ public:
     
     void begin(){
         // if (_memory.readBool(ADDRESS_START)){
-        //     Serial.println("===================");
-        //     Serial.println("STARTADO");
-        //     Serial.println("===================");
         //     return;
         // }
         Clock clockUTC;
@@ -76,13 +70,18 @@ public:
         log_e("%s", _aquarium->setRaiserSolutionDosage(DOSAGE_RAISE_SOLUTION_ML_L) ? "DOSAGEM DEFINIDA" : "FALHA AO DEFINIR DOSAGEM");
         log_e("%s", _aquarium->setTempoReaplicacao(DEFAULT_TIME_DELAY_PH) ? "TEMPO DE REAPLICAÇÃO DEFINIDO" : "FALHA AO DEFINIR TEMPO DE REAPLICAÇÃO");
 
-        removeIfExists("/rotinas.bin");
-        removeIfExists("/pump.bin");
 
-        removeIfExists("/histTemp.bin");
-        removeIfExists("/histPh.bin");
+        vector<routine> lRoutine(0);
+        write(lRoutine, "/rotinas.bin");
 
+        vector<aplicacoes> lAplicacoes(0);
+        write(lAplicacoes, "/pump.bin");
 
+        vector<historicoTemperatura> lTemperatura(0);
+        write(lTemperatura, "/histTemp.bin");
+
+        vector<historicoPh> lPh(0);
+        write(lPh, "/histPh.bin");
         _memory.writeBool(ADDRESS_START, true);
         
     }

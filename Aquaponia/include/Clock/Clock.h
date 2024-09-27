@@ -38,7 +38,7 @@ public:
 
     void setRTC(tm *date)
     {
-        // log_e("%A, %B %d %Y %H:%M:%S zone %Z %z ", date);
+        // Serial.printf("%A, %B %d %Y %H:%M:%S zone %Z %z \r\n", date);
         if (!isRunningClock())
             rtc.clockEnable(true);
 

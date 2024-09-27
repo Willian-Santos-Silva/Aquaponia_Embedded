@@ -68,6 +68,7 @@ using namespace std;
 //                                      TASKS
 // ============================================================================================
 
+TaskWrapper taskReadTemperature;
 TaskWrapper taskTemperatureControl;
 TaskWrapper taskSendInfo;
 TaskWrapper taskWaterPump;
@@ -75,6 +76,7 @@ TaskWrapper taskOneWire;
 TaskWrapper taskScanWiFiDevices;
 TaskWrapper taskPeristaultic;
 TaskWrapper taskSaveLeitura;
+
 
 void TaskSaveLeitura(){
   while(true){
@@ -119,8 +121,7 @@ void TaskSendSystemInformation()
   {
     try
     {
-      // log_e("[LOG] ENVIO INFORMACAO SISTEMA");
-      JsonDocument  doc = aquariumServices.getSystemInformation();
+      JsonDocument doc = aquariumServices.getSystemInformation();
 
       String resultString;
       serializeJson(doc, resultString);
@@ -176,7 +177,7 @@ void TaskWaterPump()
     try
     {
       String data;
-      JsonDocument  doc = aquariumServices.handlerWaterPump();
+      JsonDocument doc = aquariumServices.handlerWaterPump();
       serializeJson(doc, data);
 
       blePumpCallback.notify(blePumpCharacteristic, data);
@@ -195,8 +196,6 @@ void TaskPeristaultic()
   {
     try
     {
-      Serial.printf("peristaultic\r\n");
-
       vector<aplicacoes> aplicacaoList = aquariumSetupDevice.read<aplicacoes>("/pump.bin");
 
       aplicacoes applyRaiser = aquariumServices.applySolution(aplicacaoList, Aquarium::SOLUTION_RAISER);
@@ -238,11 +237,11 @@ void TaskPeristaultic()
 }
 
 void startTasks(){
-  taskPeristaultic.begin(&TaskPeristaultic, "Peristautic", 5000, 1);
+  taskPeristaultic.begin(&TaskPeristaultic, "Peristautic", 5000, 1); 
   taskTemperatureControl.begin(&TaskAquariumTemperatureControl, "TemperatureAquarium", 1300, 2);
   taskSaveLeitura.begin(&TaskSaveLeitura, "SaveTemperatura", 5000, 3);
   taskWaterPump.begin(&TaskWaterPump, "WaterPump", 3000, 4);
-  taskSendInfo.begin(&TaskSendSystemInformation, "SendInfo", 5000, 5);
+  taskSendInfo.begin(&TaskSendSystemInformation, "SendInfo", 3000, 5);
 }
 
 
@@ -251,164 +250,108 @@ void startTasks(){
 // //                                      ENDPOINTS
 // // ============================================================================================
 
-void  reset() {
-  // log_e("Reset");
-  memory.clear();
-  ESP.restart();
-}
 
-// Callback para conexão e desconexão
-class MyServerCallbacks: public NimBLEServerCallbacks {
-    void onConnect(BLEServer* pServer) {
-        // log_e("Cliente conectado");
-    }
-
-    void onDisconnect(BLEServer* pServer) {
-        // log_e("Cliente desconectado");
-        pServer->getAdvertising()->start();
-    }
-};
-
-
-JsonDocument  getHistPhEndpoint(JsonDocument  *doc)
+JsonDocument getHistPhEndpoint(JsonDocument *doc)
 {
-  try {
-    // log_e("[LOG] GET PH");
-    return aquariumServices.getHistPh();
-  }
-  catch(const std::exception& e)
-  {
-    log_e("[callback] erro: %s\r\n", e.what());
-    JsonDocument  resp;
-    return resp;
-  }
-
+  JsonDocument resp;
+  resp = aquariumServices.getHistPh();
+  return resp;
 }
 
 
-JsonDocument  getHistApplyEndpoint(JsonDocument  *doc)
+JsonDocument getHistApplyEndpoint(JsonDocument *doc)
 {
-  try {
-    // log_e("[LOG] GET APPLY");
-    return aquariumServices.getHistPh();
-  }
-  catch(const std::exception& e)
-  {
-    log_e("[callback] erro: %s\r\n", e.what());
-    JsonDocument  resp;
-    return resp;
-  }
-
+  JsonDocument resp;
+  resp = aquariumServices.getHistPh();
+  return resp;
 }
 
-
-JsonDocument  getHistTempEndpoint(JsonDocument  *doc)
+JsonDocument getHistTempEndpoint(JsonDocument *doc)
 {
-  try {
-    // log_e("[LOG] GET TEMPERATURA");
-    return aquariumServices.getHistTemp();
-  }
-  catch(const std::exception& e)
-  {
-    log_e("[callback] erro: %s\r\n", e.what());
-    JsonDocument  resp;
-    return resp;
-  }
-
+  JsonDocument resp;
+  resp = aquariumServices.getHistTemp();
+  return resp;
 }
 
+JsonDocument SetRTC(JsonDocument *doc) {
+  JsonDocument resp;
 
+  taskPeristaultic.pause();
+  taskTemperatureControl.pause();
+  taskSaveLeitura.pause();
+  taskWaterPump.pause();
 
-JsonDocument  SetRTC(JsonDocument  *doc) {
-  
   if (!(*doc)["rtc"].is<long>())
   {
+    taskPeristaultic.resume();
+    taskTemperatureControl.resume();
+    taskSaveLeitura.resume();
+    taskWaterPump.resume();
     throw std::runtime_error("Parametro fora de escopo");
   }
 
-
   long timestamp =(*doc)["rtc"].as<long>();
-
-
-  serializeJson(*doc, Serial);
-
 
   time_t timestamp_t = timestamp;
   tm * time = gmtime(&timestamp_t);
   clockUTC.setRTC(time);
 
-  // struct tm timeinfo;
-  // localtime_r(&timestamp, &timeinfo);
-  // clockUTC.setRTC(&timeinfo);
-  JsonDocument  resp;
+  taskPeristaultic.resume();
+  taskTemperatureControl.resume();
+  taskSaveLeitura.resume();
+  taskWaterPump.resume();
+
   return resp;
 }
 
 
-JsonDocument  updateConfigurationEndpoint(JsonDocument  *doc)
+JsonDocument updateConfigurationEndpoint(JsonDocument *doc)
 {
-  // log_e("[LOG] ATUALIZAR CONFIGURACAO");
-
-  try
+  JsonDocument resp;
+  if (!(*doc)["min_temperature"].is<int>() || !(*doc)["max_temperature"].is<int>() || 
+      !(*doc)["min_ph"].is<int>() || !(*doc)["max_ph"].is<int>() || 
+      !(*doc)["dosagem_solucao_acida"].is<int>() || !(*doc)["dosagem_solucao_base"].is<int>() || 
+      !(*doc)["tempo_reaplicacao"].is<long>())
   {
-    if (!(*doc)["min_temperature"].is<int>() || !(*doc)["max_temperature"].is<int>() || 
-        !(*doc)["min_ph"].is<int>() || !(*doc)["max_ph"].is<int>() || 
-        !(*doc)["dosagem_solucao_acida"].is<int>() || !(*doc)["dosagem_solucao_base"].is<int>() || 
-        !(*doc)["tempo_reaplicacao"].is<long>())
-    {
-      throw std::runtime_error("Parametro fora de escopo");
-    }
-      
-    Serial.printf("min_temperature: %i\r\n",        (*doc)["min_temperature"].as<int>());
-    Serial.printf("max_temperature: %i\r\n",        (*doc)["max_temperature"].as<int>());
-    Serial.printf("min_ph: %i\r\n",                 (*doc)["min_ph"].as<int>());
-    Serial.printf("max_ph: %i\r\n",                 (*doc)["max_ph"].as<int>());
-    Serial.printf("dosagem_solucao_acida: %i\r\n",  (*doc)["dosagem_solucao_acida"].as<int>());
-    Serial.printf("dosagem_solucao_base: %i\r\n",   (*doc)["dosagem_solucao_base"].as<int>());
-    Serial.printf("tempo_reaplicacao: %ld\r\n",     (*doc)["tempo_reaplicacao"].as<long>());
-
-
-    aquariumServices.updateConfiguration((*doc)["min_temperature"].as<int>(),
-                                         (*doc)["max_temperature"].as<int>(),
-                                         (*doc)["min_ph"].as<int>(),
-                                         (*doc)["max_ph"].as<int>(),
-                                         (*doc)["dosagem_solucao_acida"].as<int>(),
-                                         (*doc)["dosagem_solucao_base"].as<int>(),
-                                         (*doc)["tempo_reaplicacao"].as<long>());
-    JsonDocument  resp;
-    return resp;
+    throw std::runtime_error("Parametro fora de escopo");
   }
-  catch(const std::exception& e)
-  {
-    log_e("[callback] erro: %s\r\n", e.what());
-    JsonDocument  resp;
-    return resp;
-  }
+  // taskPeristaultic.pause();
+  // taskTemperatureControl.pause();
+  // taskSaveLeitura.pause();
+  // taskWaterPump.pause();
+
+  aquariumServices.updateConfiguration((*doc)["min_temperature"].as<int>(),
+                                        (*doc)["max_temperature"].as<int>(),
+                                        (*doc)["min_ph"].as<int>(),
+                                        (*doc)["max_ph"].as<int>(),
+                                        (*doc)["dosagem_solucao_acida"].as<int>(),
+                                        (*doc)["dosagem_solucao_base"].as<int>(),
+                                        (*doc)["tempo_reaplicacao"].as<long>());
+
+  // taskPeristaultic.resume();
+  // taskTemperatureControl.resume();
+  // taskSaveLeitura.resume();
+  // taskWaterPump.resume();
+
+  return resp;
 }
-JsonDocument  getConfigurationEndpoint(JsonDocument  *doc)
+JsonDocument getConfigurationEndpoint(JsonDocument *doc)
 {
-  // log_e("[LOG] GET CONFIGURACAO"); 
-
-  return aquariumServices.getConfiguration();
+  JsonDocument resp;
+  resp = aquariumServices.getConfiguration();
+  return resp;
 }
-JsonDocument  getRoutinesEndpoint(JsonDocument  *doc)
-{
-  try {
-    // log_e("[LOG] GET ROTINAS");
-    return aquariumServices.getRoutines();
-  }
-  catch(const std::exception& e)
-  {
-    log_e("[callback] erro: %s\r\n", e.what());
-    JsonDocument  resp;
-    return resp;
-  }
 
-}
-JsonDocument  setRoutinesEndpoint(JsonDocument  *doc)
+JsonDocument getRoutinesEndpoint(JsonDocument *doc)
 {
-  // log_e("[LOG] ATUALIZAR ROTINAS");
-  JsonDocument  resp;
+  JsonDocument resp;
+  resp = aquariumServices.getRoutines();
+  return resp;
+}
+
+JsonDocument setRoutinesEndpoint(JsonDocument *doc)
+{
+  JsonDocument resp;
   resp["status_code"] = 200;
 
   routine* r = new routine();
@@ -435,10 +378,8 @@ JsonDocument  setRoutinesEndpoint(JsonDocument  *doc)
   return resp;
 }
 
-JsonDocument  createRoutinesEndpoint(JsonDocument  *doc)
+JsonDocument createRoutinesEndpoint(JsonDocument *doc)
 {
-  // log_e("[LOG] CRIAR ROTINA");
-
   routine* r = new routine();
   strncpy(r->id, (*doc)["id"].as<const char*>(), 36);
   r->id[36] = '\0';
@@ -466,9 +407,8 @@ JsonDocument  createRoutinesEndpoint(JsonDocument  *doc)
 
   return resp;
 }
-JsonDocument  deleteRoutinesEndpoint(JsonDocument  *doc)
+JsonDocument deleteRoutinesEndpoint(JsonDocument *doc)
 {
-  // log_e("[LOG] DELETAR ROTINA");
   JsonDocument resp;
   resp["status_code"] = 200;
 
@@ -485,13 +425,21 @@ JsonDocument  deleteRoutinesEndpoint(JsonDocument  *doc)
 //                                      START SERVICES
 // ============================================================================================
 
+// class MyServerCallbacks: public NimBLEServerCallbacks {
+//     void onConnect(BLEServer* pServer) {
+//     }
+//     void onDisconnect(BLEServer* pServer) {
+//         pServer->getAdvertising()->start();
+//     }
+// };
+
 void startBLE(){  
   NimBLEDevice::init("[AQP] AQUAPONIA");
   NimBLEDevice::setMTU(517);
 
 
   pServer = NimBLEDevice::createServer();
-  pServer->setCallbacks(new MyServerCallbacks());
+  // pServer->setCallbacks(new MyServerCallbacks());
   pService = pServer->createService(SERVICE_UUID);
   
   bleSystemInformationCharacteristic = pService->createCharacteristic(CHARACTERISTIC_INFO_UUID, NIMBLE_PROPERTY::NOTIFY);
@@ -503,12 +451,12 @@ void startBLE(){
   // bleHistoricoApplyCharacteristic->setValue("{}");
   
   bleHistoricoTempCallback.onReadCallback = getHistTempEndpoint;
-  bleHistoricoTempCharacteristic = pService->createCharacteristic(CHARACTERISTIC_GET_HIST_TEMP_UUID,  NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::WRITE |  NIMBLE_PROPERTY::NOTIFY);
+  bleHistoricoTempCharacteristic = pService->createCharacteristic(CHARACTERISTIC_GET_HIST_TEMP_UUID,  NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::NOTIFY);
   bleHistoricoTempCharacteristic->setCallbacks(&bleHistoricoTempCallback);
   bleHistoricoTempCharacteristic->setValue("{}");
   
   bleHistoricoPhGetCallback.onReadCallback = getHistPhEndpoint;
-  bleHistoricoPhCharacteristic = pService->createCharacteristic(CHARACTERISTIC_GET_HIST_PH_UUID,  NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::WRITE |  NIMBLE_PROPERTY::NOTIFY);
+  bleHistoricoPhCharacteristic = pService->createCharacteristic(CHARACTERISTIC_GET_HIST_PH_UUID,  NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::NOTIFY);
   bleHistoricoPhCharacteristic->setCallbacks(&bleHistoricoPhGetCallback);
   bleHistoricoPhCharacteristic->setValue("{}");
 
@@ -567,12 +515,18 @@ void startBLE(){
 }
 
 
-
+static void IRAM_ATTR reset() {
+  // log_e("Reset");
+  // vTaskSuspendAll();
+  memory.clear();
+  ESP.restart();
+}
 
 void setup()
 {
   Serial.begin(115200);
   Serial.setDebugOutput(true);
+
 
   aquariumSetupDevice.begin();
   attachInterrupt(PIN_RESET, reset, RISING);
@@ -580,12 +534,9 @@ void setup()
 
   startBLE();
   startTasks();
-  
-  while(true){
-    vTaskDelay(100 / portTICK_PERIOD_MS);
-  }
 }
 
 void loop()
 {
+  vTaskSuspend(NULL);
 }
