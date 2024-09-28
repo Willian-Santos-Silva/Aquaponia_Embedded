@@ -415,7 +415,7 @@ void AquariumServices::updateConfiguration(int min_temperature, int max_temperat
 
     if (!_aquarium->setTempoReaplicacao(tempo_reaplicacao))
     {
-        throw std::runtime_error("Falha ao definir a dosagem da solução base, tente novamente");
+        throw std::runtime_error("Falha ao definir o tempo para reaplicacao, tente novamente");
     }
     
     Serial.printf("\r\nSETADOS\r\n");
@@ -427,9 +427,9 @@ void AquariumServices::updateConfiguration(int min_temperature, int max_temperat
     Serial.printf("max_ph: %i\r\n",                 _aquarium->getMaxPh());
     Serial.printf("dosagem_solucao_acida: %i\r\n",  _aquarium->getLowerSolutionDosage());
     Serial.printf("dosagem_solucao_base: %i\r\n",  _aquarium->getRaiserSolutionDosage());
-    Serial.printf("tempo_reaplicacao: %ld\r\n",     _aquarium->getTempoReaplicacao());
+    Serial.printf("tempo_reaplicacao: %lu\r\n",     _aquarium->getTempoReaplicacao());
 
-    Serial.printf("\r\nSETADOS\r\n");
+    Serial.printf("\r\n SETADOS\r\n");
 
 }
 JsonDocument  AquariumServices::handlerWaterPump() {
