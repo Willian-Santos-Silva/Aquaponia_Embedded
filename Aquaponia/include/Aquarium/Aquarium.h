@@ -32,7 +32,6 @@ public:
     {
         semaphoreTemperature = xSemaphoreCreateBinary();
         xSemaphoreGive(semaphoreTemperature);
-        // ds.selectNext();
     }
     enum solution { SOLUTION_LOWER, SOLUTION_RAISER };
 
@@ -68,9 +67,6 @@ public:
                 xSemaphoreGive(semaphoreTemperature);
                 return _temperature;
             }
-            // uint8_t *add;
-            // add[0] = ds.selectNext();
-
             _temperature = ds.getTempC();
             xSemaphoreGive(semaphoreTemperature);
         }
@@ -80,16 +76,12 @@ public:
 
     double readTemperature()
     {
-        // semaphoreTemperature = xSemaphoreCreateBinary();
-        // if(semaphoreTemperature == NULL)
-        // return
         if(xSemaphoreTake(semaphoreTemperature, portMAX_DELAY) == pdTRUE) {
             if (ds.getNumberOfDevices() == 0){
                 _temperature = -127.0f;
                 xSemaphoreGive(semaphoreTemperature);
                 return _temperature;
             }
-            // uint8_t *add;
             ds.selectNext();
 
             _temperature = ds.getTempC();
