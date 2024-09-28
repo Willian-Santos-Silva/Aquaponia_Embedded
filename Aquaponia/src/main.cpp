@@ -246,9 +246,9 @@ void startTasks(){
 
 
 
-// // ============================================================================================
-// //                                      ENDPOINTS
-// // ============================================================================================
+// ============================================================================================
+//                                      ENDPOINTS
+// ============================================================================================
 
 
 JsonDocument getHistPhEndpoint(JsonDocument *doc)
@@ -514,12 +514,9 @@ void startBLE(){
   pAdvertising->start();
 }
 
-
-static void IRAM_ATTR reset() {
-  // log_e("Reset");
-  // vTaskSuspendAll();
-  memory.clear();
-  ESP.restart();
+volatile bool clearEEPROMFlag = false;
+void IRAM_ATTR reset() {
+  clearEEPROMFlag = true;
 }
 
 void setup()
@@ -527,9 +524,9 @@ void setup()
   Serial.begin(115200);
   Serial.setDebugOutput(true);
 
+  attachInterrupt(digitalPinToInterrupt(PIN_RESET), reset, RISING);
 
   aquariumSetupDevice.begin();
-  attachInterrupt(PIN_RESET, reset, RISING);
   aquarium.begin();
 
   startBLE();
@@ -538,5 +535,9 @@ void setup()
 
 void loop()
 {
-  vTaskSuspend(NULL);
+  if (clearEEPROMFlag) {
+    memory.clear();
+    ESP.restart();
+  }
+  // vTaskSuspend(NULL);
 }
