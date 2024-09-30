@@ -56,13 +56,12 @@ public:
     }
     
     void begin(){
-        // if (_memory.readBool(ADDRESS_START)){
-        //     return;
-        // }
+        if (_memory.readBool(ADDRESS_START)){
+            return;
+        }
         Clock clockUTC;
         time_t timestamp = 1726589003;
-        tm * time = gmtime(&timestamp);
-        clockUTC.setRTC(time);
+        clockUTC.setRTC(&timestamp);
 
         log_e("%s", _aquarium->setHeaterAlarm(MIN_AQUARIUM_TEMP, MAX_AQUARIUM_TEMP) ? "TEMPERATURAS DEFINIDAS" : "FALHA AO DEFINIR INTERVALO DE TEMPERATURA");
         log_e("%s", _aquarium->setPhAlarm(MIN_AQUARIUM_PH, MAX_AQUARIUM_PH) ? "PH DEFINIDO" : "FALHA AO DEFINIR INTERVALO DE PH");

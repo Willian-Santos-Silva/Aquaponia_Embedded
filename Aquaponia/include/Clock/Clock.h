@@ -38,11 +38,16 @@ public:
 
     void setRTC(tm *date)
     {
-        // Serial.printf("%A, %B %d %Y %H:%M:%S zone %Z %z \r\n", date);
+        time_t time = mktime(date);
+        setRTC(&time);
+    }
+    
+    void setRTC(time_t *date)
+    {
         if (!isRunningClock())
             rtc.clockEnable(true);
 
-        if(!rtc.setDateTime(date->tm_hour, date->tm_min, date->tm_sec, date->tm_mday, date->tm_mon + 1, date->tm_year + 1900, date->tm_wday)){
+        if(!rtc.setEpoch(*date)){
             throw std::runtime_error("Erro ao definir data e hora");
         }
 

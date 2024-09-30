@@ -292,9 +292,8 @@ JsonDocument SetRTC(JsonDocument *doc) {
 
   long timestamp =(*doc)["rtc"].as<long>();
 
-  time_t timestamp_t = timestamp;
-  tm * time = gmtime(&timestamp_t);
-  clockUTC.setRTC(time);
+  time_t time = timestamp;
+  clockUTC.setRTC(&time);
 
   taskPeristaultic.resume();
   taskTemperatureControl.resume();

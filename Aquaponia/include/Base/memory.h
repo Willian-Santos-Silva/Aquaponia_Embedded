@@ -75,10 +75,11 @@ public:
             throw std::runtime_error("Falha ao inicializar eeprom");
         }
 
-        for (int i = 0 ; i < EEPROM.length(); i++) {
-            EEPROM.write(i, 0);
+        for (int i = 0 ; i < EEPROM_SIZE; i++) {
+            EEPROM.write(i, 0x00);
         }
         EEPROM.commit();
+        EEPROM.end();
         Serial.println("Limpeza concluida");
     }
 };
