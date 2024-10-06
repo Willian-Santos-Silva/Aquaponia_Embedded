@@ -15,8 +15,6 @@
 #include "FS.h"
 #include "SPIFFS.h"
 
-#include "uuid.h"
-
 
 class SetupDevice {
 private:
@@ -81,6 +79,10 @@ public:
 
         vector<historicoPh> lPh(0);
         write(lPh, "/histPh.bin");
+
+        // nvs_set_u32(my_handle, "lastTime", 0);
+        // nvs_commit(my_handle);
+
         _memory.writeBool(ADDRESS_START, true);
         
     }

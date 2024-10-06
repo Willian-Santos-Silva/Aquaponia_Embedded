@@ -121,7 +121,7 @@ public:
             avgValue+=buf[i];
 
         double pHVol=(double)avgValue*Vmax/Dmax/6;
-        double phValue = -3.30 * pHVol + 21.34;
+        double phValue = -5.70 * pHVol + 21.34;
 
         delay(20);
 

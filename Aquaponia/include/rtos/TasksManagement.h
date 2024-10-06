@@ -4,6 +4,7 @@
 #include <functional>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
+#include "soc/rtc_wdt.h"
 
 class TaskWrapper
 {
@@ -24,7 +25,6 @@ public:
 
         _taskFunction = taskFunction;
         xTaskCreate(&TaskWrapper::taskEntryPoint, taskName, stackSize, this, priority, &_handleTask);
-        
         Serial.printf("Tamanho task: %i\r\n",uxTaskGetStackHighWaterMark(_handleTask));
     }
     void beginMainCore(const std::function<void()> &taskFunction, const char *taskName, uint32_t stackSize, UBaseType_t priority) 

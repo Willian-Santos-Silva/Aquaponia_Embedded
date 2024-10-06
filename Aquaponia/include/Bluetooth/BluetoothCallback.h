@@ -25,9 +25,9 @@ private:
 
     void onWrite(NimBLECharacteristic* characteristic) {
         
-        rtc_wdt_protect_off();    // Turns off the automatic wdt service
-        rtc_wdt_enable();         // Turn it on manually
-        rtc_wdt_set_time(RTC_WDT_STAGE0, 20000);  // Define how long you desire to let dog wait.
+        // rtc_wdt_protect_off();    // Turns off the automatic wdt service
+        // rtc_wdt_enable();         // Turn it on manually
+        // rtc_wdt_set_time(RTC_WDT_STAGE0, 1);  // Define how long you desire to let dog wait.
         
         String value = characteristic->getValue().c_str();
 
@@ -61,9 +61,10 @@ private:
             characteristic->setValue(&endSignal, sizeof(endSignal));
             log_e("[LOG][BLE:WRITE][E]: %s", e.what());
         }
+        value.clear();
 
-        rtc_wdt_disable();
-        rtc_wdt_protect_on();
+        // rtc_wdt_disable();
+        // rtc_wdt_protect_on();
     }
 
     void onRead(NimBLECharacteristic* characteristic) {

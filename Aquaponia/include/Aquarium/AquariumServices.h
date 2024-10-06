@@ -63,7 +63,7 @@ public:
     void controlPeristaultic();
 
     aplicacoes applySolution(const vector<aplicacoes>& aplicacaoList, Aquarium::solution so);
-    aplicacoes applyRiseSolution(double deltaPh, double acumuladoAplicado);
+    aplicacoes applyRaiserSolution(double deltaPh, double acumuladoAplicado);
     aplicacoes applyLowerSolution(double deltaPh, double acumuladoAplicado);
     JsonDocument  handlerWaterPump();
 };
@@ -178,6 +178,11 @@ void AquariumServices::controlPeristaultic() {
 }
 
 aplicacoes AquariumServices::applySolution(const vector<aplicacoes>& aplicacaoList, Aquarium::solution solution) {
+    if(solution == Aquarium::SOLUTION_LOWER)
+        Serial.printf("====== LOWER ======\r\n");
+    else
+        Serial.printf("====== RAISER ======\r\n");
+
     aplicacoes ultimaAplicacao;
     aplicacoes primeiraAplicacao;
 
@@ -202,25 +207,32 @@ aplicacoes AquariumServices::applySolution(const vector<aplicacoes>& aplicacaoLi
         if(!hasLast){
             ultimaAplicacao = aplicacao;
             hasLast = true;
+
+            if(((long)timestamp - (long)ultimaAplicacao.dataAplicacao) >=  _aquarium->getTempoReaplicacao()){
+                break;
+            }
         }
 
-        acumuladoAplicado += aplicacao.ml;   
         // Serial.printf("diferenca: %lu | tempo: %lu | diferencaa: %lu \r\n", ((long)ultimaAplicacao.dataAplicacao - (long)aplicacao.dataAplicacao), _aquarium->getTempoReaplicacao(), ((long)timestamp - (long)ultimaAplicacao.dataAplicacao));
-        if((long)ultimaAplicacao.dataAplicacao - (long)aplicacao.dataAplicacao >= _aquarium->getTempoReaplicacao()
-         || ((long)timestamp - (long)ultimaAplicacao.dataAplicacao) >=  _aquarium->getTempoReaplicacao()){
-            
-            Serial.printf("pare\r\n");
+        if((long)ultimaAplicacao.dataAplicacao - (long)aplicacao.dataAplicacao >= _aquarium->getTempoReaplicacao())
+         {
+            Serial.printf("ultima aplicacao: %lu\r\n", (long)ultimaAplicacao.dataAplicacao);
+            Serial.printf("data aplicacao(i): %lu\r\n", (long)aplicacao.dataAplicacao);
+            Serial.printf("tempo reaplicacao: %lu\r\n\r\n", (long)_aquarium->getTempoReaplicacao());
             break;
          }
-        
+
+        acumuladoAplicado += aplicacao.ml;
     }
 
     aplicacoes aplicacao;
+
 
     if(hasLast){
         Serial.printf("DATA ULTIMA: %s\r\n", printData(&ultimaAplicacao.dataAplicacao));
 
         if ((long)ultimaAplicacao.dataAplicacao == timestamp) {
+        Serial.printf("retorno timestamp: %lu\r\n", (long)timestamp);
             return aplicacao;
         }
     }
@@ -235,7 +247,7 @@ aplicacoes AquariumServices::applySolution(const vector<aplicacoes>& aplicacaoLi
     }
 
     if(solution == Aquarium::SOLUTION_RAISER){
-        aplicacao = applyRiseSolution(0, acumuladoAplicado);
+        aplicacao = applyRaiserSolution(0, acumuladoAplicado);
         aplicacao.type = solution;
         aplicacao.dataAplicacao = timestamp;
         return aplicacao;
@@ -243,7 +255,8 @@ aplicacoes AquariumServices::applySolution(const vector<aplicacoes>& aplicacaoLi
     return aplicacao;
 }
 
-aplicacoes AquariumServices::applyRiseSolution(double deltaPh, double acumuladoAplicado) {
+aplicacoes AquariumServices::applyRaiserSolution(double deltaPh, double acumuladoAplicado) {
+    Serial.printf("Aplicando Raiser\r\n");
     aplicacoes aplicacao;
     aplicacao.ml = 0.0;
 
@@ -257,7 +270,7 @@ aplicacoes AquariumServices::applyRiseSolution(double deltaPh, double acumuladoA
     while ((acumuladoAplicado + aplicacao.ml + ml_s) <= maxBufferSolutionMl) {
         double ph = _aquarium->getPh();
 
-        if (ph >= _aquarium->getMinPh())
+        if (ph >= _aquarium->getMaxPh())
         {
             break;
         }
@@ -272,6 +285,8 @@ aplicacoes AquariumServices::applyRiseSolution(double deltaPh, double acumuladoA
 }
 
 aplicacoes AquariumServices::applyLowerSolution(double deltaPh, double acumuladoAplicado) {
+    Serial.printf("Aplicando Lower\r\n");
+    Serial.printf("Aplicando Lower\r\n");
     aplicacoes aplicacao;
     aplicacao.ml = 0.0;
     double ml_s = 1.0;
@@ -281,10 +296,12 @@ aplicacoes AquariumServices::applyLowerSolution(double deltaPh, double acumulado
     
     double maxAlkalineSolutionMl = AQUARIUM_VOLUME_L / static_cast<double>(_aquarium->getLowerSolutionDosage());
 
+    Serial.printf("solucao: %fml\r\n", maxAlkalineSolutionMl);
+    Serial.printf("dosar: %fml\r\n", (acumuladoAplicado + aplicacao.ml + ml_s));
     while ((acumuladoAplicado + aplicacao.ml + ml_s) <= maxAlkalineSolutionMl) {
         double ph = _aquarium->getPh();
 
-        if (ph <= _aquarium->getMaxPh())
+        if (ph <= _aquarium->getMinPh())
         {
             break;
         }
@@ -417,20 +434,6 @@ void AquariumServices::updateConfiguration(int min_temperature, int max_temperat
     {
         throw std::runtime_error("Falha ao definir o tempo para reaplicacao, tente novamente");
     }
-    
-    Serial.printf("\r\nSETADOS\r\n");
-
-    
-    Serial.printf("min_temperature: %i\r\n",        _aquarium->getMinTemperature());
-    Serial.printf("max_temperature: %i\r\n",        _aquarium->getMaxTemperature());
-    Serial.printf("min_ph: %i\r\n",                 _aquarium->getMinPh());
-    Serial.printf("max_ph: %i\r\n",                 _aquarium->getMaxPh());
-    Serial.printf("dosagem_solucao_acida: %i\r\n",  _aquarium->getLowerSolutionDosage());
-    Serial.printf("dosagem_solucao_base: %i\r\n",  _aquarium->getRaiserSolutionDosage());
-    Serial.printf("tempo_reaplicacao: %lu\r\n",     _aquarium->getTempoReaplicacao());
-
-    Serial.printf("\r\n SETADOS\r\n");
-
 }
 JsonDocument  AquariumServices::handlerWaterPump() {
     JsonDocument  doc;
@@ -451,7 +454,7 @@ JsonDocument  AquariumServices::handlerWaterPump() {
                     _aquarium->setWaterPumpStatus(HIGH);
                     doc["status_pump"] = true;
                     doc["duracao"] = (h.end - h.start) * 60;
-                    doc["tempo_restante"] = (h.end * 60) - (now.tm_hour *120 + now.tm_min * 60 + now.tm_sec);
+                    doc["tempo_restante"] = (h.end * 60) - ((now.tm_hour * 60 * 60)  + now.tm_min * 60 + now.tm_sec);
                     return doc;
                 }
             }

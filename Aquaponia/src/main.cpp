@@ -20,6 +20,16 @@
 
 #include <NimBLEDevice.h>
 
+
+
+#include "nvs_flash.h"
+#include "nvs.h"
+#include "soc/rtc_wdt.h"
+#include "esp_task_wdt.h"
+
+uint32_t  remainingTime = 0; 
+nvs_handle my_handle;
+
 vector<routine> listRotinas;
 
 NimBLEServer *pServer = NULL;
@@ -79,8 +89,24 @@ TaskWrapper taskSaveLeitura;
 
 
 void TaskSaveLeitura(){
+  uint32_t  lastTime = 0; 
+  
   while(true){
     try {
+      uint32_t currentTime = millis();
+      uint32_t liquidTime = currentTime - lastTime + remainingTime;
+
+      if (liquidTime < CYCLE_TIME_INFO_MS) {
+        nvs_set_u32(my_handle, "remainingTime", liquidTime);
+        vTaskDelay(pdMS_TO_TICKS(1000.0));
+        continue;
+      }
+      lastTime = currentTime;
+      remainingTime = 0;
+
+      nvs_set_u32(my_handle, "remainingTime", remainingTime);
+      nvs_commit(my_handle);
+
       vector<historicoTemperatura> lht = aquariumSetupDevice.read<historicoTemperatura>("/histTemp.bin");
       if(lht.size() >= 168)
           lht.erase(lht.begin());
@@ -110,7 +136,7 @@ void TaskSaveLeitura(){
     {
         log_e("erro: %s\r\n", e.what());
     }
-    vTaskDelay(pdMS_TO_TICKS(3600000.0));
+    vTaskDelay(pdMS_TO_TICKS(1000.0));
   }
 }
 
@@ -142,10 +168,10 @@ void TaskSendSystemInformation()
 void TaskAquariumTemperatureControl()
 {
   double temperature;
-  double flagTemeperature;
-  double Kp = 2.0f, Ki = 5.0f, Kd = 1.0f;
-  double integralError;
-  double output;
+  // double flagTemeperature;
+  // double Kp = 2.0f, Ki = 5.0f, Kd = 1.0f;
+  // double integralError;
+  // double output;
 
   while (true)
   {    
@@ -157,14 +183,14 @@ void TaskAquariumTemperatureControl()
       continue;
     }
     
-    double goalTemperature = (aquarium.getMaxTemperature() - aquarium.getMinTemperature()) / 2 + aquarium.getMinTemperature();
-    double erro = goalTemperature - temperature;
-    integralError += erro;
+    double goalTemperature = (aquarium.getMaxTemperature() + aquarium.getMinTemperature()) / 2;
+    // double erro = goalTemperature - temperature;
+    // integralError += erro;
 
-    flagTemeperature = temperature;
-    output = Kp * erro + Ki * integralError - Kd * (temperature - flagTemeperature);
+    // flagTemeperature = temperature;
+    // output = Kp * erro + Ki * integralError - Kd * (temperature - flagTemeperature);
 
-    aquarium.setStatusHeater(output < 0);
+    aquarium.setStatusHeater(temperature < goalTemperature);
 
     vTaskDelay(pdMS_TO_TICKS(1000.0));
   }
@@ -237,6 +263,10 @@ void TaskPeristaultic()
 }
 
 void startTasks(){
+  esp_task_wdt_init(10, true);
+  esp_task_wdt_delete(xTaskGetIdleTaskHandleForCPU(0));
+  esp_task_wdt_delete(xTaskGetIdleTaskHandleForCPU(1));
+
   taskPeristaultic.begin(&TaskPeristaultic, "Peristautic", 5000, 1); 
   taskTemperatureControl.begin(&TaskAquariumTemperatureControl, "TemperatureAquarium", 1300, 2);
   taskSaveLeitura.begin(&TaskSaveLeitura, "SaveTemperatura", 5000, 3);
@@ -276,17 +306,17 @@ JsonDocument getHistTempEndpoint(JsonDocument *doc)
 JsonDocument SetRTC(JsonDocument *doc) {
   JsonDocument resp;
 
-  taskPeristaultic.pause();
-  taskTemperatureControl.pause();
-  taskSaveLeitura.pause();
-  taskWaterPump.pause();
+  // taskPeristaultic.pause();
+  // taskTemperatureControl.pause();
+  // taskSaveLeitura.pause();
+  // taskWaterPump.pause();
 
   if (!(*doc)["rtc"].is<long>())
   {
-    taskPeristaultic.resume();
-    taskTemperatureControl.resume();
-    taskSaveLeitura.resume();
-    taskWaterPump.resume();
+    // taskPeristaultic.resume();
+    // taskTemperatureControl.resume();
+    // taskSaveLeitura.resume();
+    // taskWaterPump.resume();
     throw std::runtime_error("Parametro fora de escopo");
   }
 
@@ -295,10 +325,10 @@ JsonDocument SetRTC(JsonDocument *doc) {
   time_t time = timestamp;
   clockUTC.setRTC(&time);
 
-  taskPeristaultic.resume();
-  taskTemperatureControl.resume();
-  taskSaveLeitura.resume();
-  taskWaterPump.resume();
+  // taskPeristaultic.resume();
+  // taskTemperatureControl.resume();
+  // taskSaveLeitura.resume();
+  // taskWaterPump.resume();
 
   return resp;
 }
@@ -530,6 +560,11 @@ void setup()
 
   startBLE();
   startTasks();
+
+  nvs_flash_init();
+  nvs_open("storage", NVS_READWRITE, &my_handle);
+
+  nvs_get_u32(my_handle, "remainingTime", &remainingTime);
 }
 
 void loop()

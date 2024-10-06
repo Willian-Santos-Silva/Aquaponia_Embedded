@@ -17,6 +17,7 @@ public:
     {
     }
 
+    
     template <typename T>
     void write(int address, T data)
     {
@@ -27,9 +28,21 @@ public:
         
         for (int i = 0; i < sizeof(T); i++)
         {
-            EEPROM.put(address, data  >> (8 * i) & 0xFF);
+            EEPROM.put(address, data  >> (8 * i));
             address++;
         }
+        
+        EEPROM.commit();
+    }
+
+    void writeLong(int address, unsigned long data)
+    {
+        if (!EEPROM.begin(EEPROM_SIZE))
+        {
+            throw std::runtime_error("Falha ao inicializar eeprom");
+        }
+        
+        EEPROM.writeULong(address, data);
         
         EEPROM.commit();
     }

@@ -22,12 +22,13 @@
 #define DELTA_MAXIMO_PH                         0.3
 
 #define AQUARIUM_VOLUME_L                       10
-#define DEFAULT_TIME_DELAY_PH                   3600 // SEGUNDOS
+#define DEFAULT_TIME_DELAY_PH                   10000 //3600 // SEGUNDOS
 
 #define CHANNEL_SOLUTION_LOWER                  0
 #define CHANNEL_SOLUTION_RAISER                 1
 #define POTENCIA_PERISTAULTIC                   40.0
 #define FLUXO_PERISTALTIC_ML_S                  1.68
+#define CYCLE_TIME_INFO_MS                      10000 // 3600000
 
 
 
@@ -132,6 +133,7 @@ T(em Kelvin)
 #define ADDRESS_DOSAGEM_REDUTOR_PH                            0x000011 // int (4 bytes)
 #define ADDRESS_DOSAGEM_AUMENTADOR_PH                         0x000015 // int (4 bytes)
 #define ADDRESS_CYCLE_TIME_DOSAGEM                            0x000019 // long (8 bytes)
+#define ADDRESS_CYCLE_TIME_INFO                               0x000021 // unsigned long (4 bytes)
 
 
 
