@@ -22,13 +22,13 @@
 #define DELTA_MAXIMO_PH                         0.3
 
 #define AQUARIUM_VOLUME_L                       10
-#define DEFAULT_TIME_DELAY_PH                   10000 //3600 // SEGUNDOS
+#define DEFAULT_TIME_DELAY_PH                   3600  //10000 // SEGUNDOS
 
 #define CHANNEL_SOLUTION_LOWER                  0
 #define CHANNEL_SOLUTION_RAISER                 1
 #define POTENCIA_PERISTAULTIC                   40.0
 #define FLUXO_PERISTALTIC_ML_S                  1.68
-#define CYCLE_TIME_INFO_MS                      10000 // 3600000
+#define CYCLE_TIME_INFO_MS                      3600000//10000 // 
 
 
 

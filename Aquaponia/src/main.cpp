@@ -18,7 +18,10 @@
 
 #include "Bluetooth/BluetoothCallback.h"
 
-#include <NimBLEDevice.h>
+#include <BLEDevice.h>
+#include <BLEServer.h>
+#include <BLEUtils.h>
+#include <BLE2902.h>
 
 
 
@@ -32,11 +35,11 @@ nvs_handle my_handle;
 
 vector<routine> listRotinas;
 
-NimBLEServer *pServer = NULL;
-NimBLEService *pService;
-NimBLEService *pServiceRoutinas;
+BLEServer *pServer = NULL;
+BLEService *pService,
+           *pServiceRoutinas;
 
-NimBLECharacteristic *bleConfigurationCharacteristic,
+BLECharacteristic *bleConfigurationCharacteristic,
                   *blePumpCharacteristic,
                   *bleSystemInformationCharacteristic,
                   *bleRTCCharacteristic,
@@ -98,7 +101,7 @@ void TaskSaveLeitura(){
 
       if (liquidTime < CYCLE_TIME_INFO_MS) {
         nvs_set_u32(my_handle, "remainingTime", liquidTime);
-        vTaskDelay(pdMS_TO_TICKS(1000.0));
+        vTaskDelay(pdMS_TO_TICKS(1.0));
         continue;
       }
       lastTime = currentTime;
@@ -131,12 +134,18 @@ void TaskSaveLeitura(){
       lhph.push_back(hph);
 
       aquariumSetupDevice.write<historicoPh>(lhph, "/histPh.bin");
+
+
+      Serial.printf("[%s] ", clockUTC.getDateTimeString());
+      Serial.printf("numero de leituras: %lu\r\n", (long)lht.size());
+      Serial.printf("[%s] ", clockUTC.getDateTimeString());
+      Serial.printf("numero de leituras: %lu\r\n\n", (long)lhph.size());
     }
     catch (const std::exception& e)
     {
         log_e("erro: %s\r\n", e.what());
     }
-    vTaskDelay(pdMS_TO_TICKS(1000.0));
+    vTaskDelay(pdMS_TO_TICKS(1.0));
   }
 }
 
@@ -264,8 +273,8 @@ void TaskPeristaultic()
 
 void startTasks(){
   esp_task_wdt_init(10, true);
-  esp_task_wdt_delete(xTaskGetIdleTaskHandleForCPU(0));
-  esp_task_wdt_delete(xTaskGetIdleTaskHandleForCPU(1));
+  // esp_task_wdt_delete(xTaskGetIdleTaskHandleForCPU(0));
+  // esp_task_wdt_delete(xTaskGetIdleTaskHandleForCPU(1));
 
   taskPeristaultic.begin(&TaskPeristaultic, "Peristautic", 5000, 1); 
   taskTemperatureControl.begin(&TaskAquariumTemperatureControl, "TemperatureAquarium", 1300, 2);
@@ -306,17 +315,8 @@ JsonDocument getHistTempEndpoint(JsonDocument *doc)
 JsonDocument SetRTC(JsonDocument *doc) {
   JsonDocument resp;
 
-  // taskPeristaultic.pause();
-  // taskTemperatureControl.pause();
-  // taskSaveLeitura.pause();
-  // taskWaterPump.pause();
-
   if (!(*doc)["rtc"].is<long>())
   {
-    // taskPeristaultic.resume();
-    // taskTemperatureControl.resume();
-    // taskSaveLeitura.resume();
-    // taskWaterPump.resume();
     throw std::runtime_error("Parametro fora de escopo");
   }
 
@@ -324,11 +324,6 @@ JsonDocument SetRTC(JsonDocument *doc) {
 
   time_t time = timestamp;
   clockUTC.setRTC(&time);
-
-  // taskPeristaultic.resume();
-  // taskTemperatureControl.resume();
-  // taskSaveLeitura.resume();
-  // taskWaterPump.resume();
 
   return resp;
 }
@@ -344,10 +339,6 @@ JsonDocument updateConfigurationEndpoint(JsonDocument *doc)
   {
     throw std::runtime_error("Parametro fora de escopo");
   }
-  // taskPeristaultic.pause();
-  // taskTemperatureControl.pause();
-  // taskSaveLeitura.pause();
-  // taskWaterPump.pause();
 
   aquariumServices.updateConfiguration((*doc)["min_temperature"].as<int>(),
                                         (*doc)["max_temperature"].as<int>(),
@@ -356,12 +347,6 @@ JsonDocument updateConfigurationEndpoint(JsonDocument *doc)
                                         (*doc)["dosagem_solucao_acida"].as<int>(),
                                         (*doc)["dosagem_solucao_base"].as<int>(),
                                         (*doc)["tempo_reaplicacao"].as<long>());
-
-  // taskPeristaultic.resume();
-  // taskTemperatureControl.resume();
-  // taskSaveLeitura.resume();
-  // taskWaterPump.resume();
-
   return resp;
 }
 JsonDocument getConfigurationEndpoint(JsonDocument *doc)
@@ -454,38 +439,38 @@ JsonDocument deleteRoutinesEndpoint(JsonDocument *doc)
 //                                      START SERVICES
 // ============================================================================================
 
-// class MyServerCallbacks: public NimBLEServerCallbacks {
-//     void onConnect(BLEServer* pServer) {
-//     }
-//     void onDisconnect(BLEServer* pServer) {
-//         pServer->getAdvertising()->start();
-//     }
-// };
+class MyServerCallbacks: public BLEServerCallbacks {
+    void onConnect(BLEServer* pServer) {
+    }
+    void onDisconnect(BLEServer* pServer) {
+        pServer->getAdvertising()->start();
+    }
+};
 
 void startBLE(){  
-  NimBLEDevice::init("[AQP] AQUAPONIA");
-  NimBLEDevice::setMTU(517);
+  BLEDevice::init("[AQP] AQUAPONIA");
+  BLEDevice::setMTU(517);
 
 
-  pServer = NimBLEDevice::createServer();
+  pServer = BLEDevice::createServer();
   // pServer->setCallbacks(new MyServerCallbacks());
   pService = pServer->createService(SERVICE_UUID);
   
-  bleSystemInformationCharacteristic = pService->createCharacteristic(CHARACTERISTIC_INFO_UUID, NIMBLE_PROPERTY::NOTIFY);
+  bleSystemInformationCharacteristic = pService->createCharacteristic(CHARACTERISTIC_INFO_UUID, BLECharacteristic::PROPERTY_NOTIFY);
   bleSystemInformationCharacteristic->setCallbacks(&bleSystemInformationCallback);
   bleSystemInformationCharacteristic->setValue("{}");
   
-  // bleHistoricoApplyCharacteristic = pService->createCharacteristic(CHARACTERISTIC_GET_HIST_APL_UUID, NIMBLE_PROPERTY::NOTIFY);
+  // bleHistoricoApplyCharacteristic = pService->createCharacteristic(CHARACTERISTIC_GET_HIST_APL_UUID, BLECharacteristic::PROPERTY_NOTIFY);
   // bleHistoricoApplyCharacteristic->setCallbacks(&bleHistoricoApplyGetCallback);
   // bleHistoricoApplyCharacteristic->setValue("{}");
   
   bleHistoricoTempCallback.onReadCallback = getHistTempEndpoint;
-  bleHistoricoTempCharacteristic = pService->createCharacteristic(CHARACTERISTIC_GET_HIST_TEMP_UUID,  NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::NOTIFY);
+  bleHistoricoTempCharacteristic = pService->createCharacteristic(CHARACTERISTIC_GET_HIST_TEMP_UUID,  BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_NOTIFY);
   bleHistoricoTempCharacteristic->setCallbacks(&bleHistoricoTempCallback);
   bleHistoricoTempCharacteristic->setValue("{}");
   
   bleHistoricoPhGetCallback.onReadCallback = getHistPhEndpoint;
-  bleHistoricoPhCharacteristic = pService->createCharacteristic(CHARACTERISTIC_GET_HIST_PH_UUID,  NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::NOTIFY);
+  bleHistoricoPhCharacteristic = pService->createCharacteristic(CHARACTERISTIC_GET_HIST_PH_UUID,  BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_NOTIFY);
   bleHistoricoPhCharacteristic->setCallbacks(&bleHistoricoPhGetCallback);
   bleHistoricoPhCharacteristic->setValue("{}");
 
@@ -493,16 +478,16 @@ void startBLE(){
   bleConfigurationCallback.onWriteCallback = updateConfigurationEndpoint;
   bleConfigurationCallback.onReadCallback = getConfigurationEndpoint;
 
-  bleConfigurationCharacteristic = pService->createCharacteristic(CHARACTERISTIC_CONFIGURATION_UUID, NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::WRITE | NIMBLE_PROPERTY::NOTIFY);
+  bleConfigurationCharacteristic = pService->createCharacteristic(CHARACTERISTIC_CONFIGURATION_UUID, BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_WRITE | BLECharacteristic::PROPERTY_NOTIFY);
   bleConfigurationCharacteristic->setCallbacks(&bleConfigurationCallback);
   bleConfigurationCharacteristic->setValue("{}");
 
   bleRTCCallback.onWriteCallback = SetRTC;
-  bleRTCCharacteristic = pService->createCharacteristic(CHARACTERISTIC_RTC_UUID, NIMBLE_PROPERTY::WRITE | NIMBLE_PROPERTY::NOTIFY);
+  bleRTCCharacteristic = pService->createCharacteristic(CHARACTERISTIC_RTC_UUID, BLECharacteristic::PROPERTY_WRITE | BLECharacteristic::PROPERTY_NOTIFY);
   bleRTCCharacteristic->setCallbacks(&bleRTCCallback);
   bleRTCCharacteristic->setValue("{}");
 
-  blePumpCharacteristic = pService->createCharacteristic(CHARACTERISTIC_PUMP_UUID, NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::NOTIFY);
+  blePumpCharacteristic = pService->createCharacteristic(CHARACTERISTIC_PUMP_UUID, BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_NOTIFY);
   blePumpCharacteristic->setCallbacks(&blePumpCallback);
   blePumpCharacteristic->setValue("{}");
 
@@ -510,22 +495,22 @@ void startBLE(){
   pServiceRoutinas = pServer->createService(SERVICE_ROUTINES_UUID);
 
   bleRoutinesUpdateCallback.onWriteCallback = setRoutinesEndpoint;
-  bleRoutinesUpdateCharacteristic = pServiceRoutinas->createCharacteristic(CHARACTERISTIC_UPDATE_ROUTINES_UUID, NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::WRITE | NIMBLE_PROPERTY::NOTIFY);
+  bleRoutinesUpdateCharacteristic = pServiceRoutinas->createCharacteristic(CHARACTERISTIC_UPDATE_ROUTINES_UUID, BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_WRITE | BLECharacteristic::PROPERTY_NOTIFY);
   bleRoutinesUpdateCharacteristic->setCallbacks(&bleRoutinesUpdateCallback);
   bleRoutinesUpdateCharacteristic->setValue("{}");
 
   bleRoutinesGetCallback.onReadCallback = getRoutinesEndpoint;
-  bleRoutinesGetCharacteristic = pServiceRoutinas->createCharacteristic(CHARACTERISTIC_GET_ROUTINES_UUID, NIMBLE_PROPERTY::READ |  NIMBLE_PROPERTY::NOTIFY);
+  bleRoutinesGetCharacteristic = pServiceRoutinas->createCharacteristic(CHARACTERISTIC_GET_ROUTINES_UUID, BLECharacteristic::PROPERTY_READ |  BLECharacteristic::PROPERTY_NOTIFY);
   bleRoutinesGetCharacteristic->setCallbacks(&bleRoutinesGetCallback);
   bleRoutinesGetCharacteristic->setValue("{}");
 
   bleRoutinesDeleteCallback.onWriteCallback = deleteRoutinesEndpoint;
-  bleRoutinesDeleteCharacteristic = pServiceRoutinas->createCharacteristic(CHARACTERISTIC_DELETE_ROUTINES_UUID, NIMBLE_PROPERTY::WRITE | NIMBLE_PROPERTY::NOTIFY);
+  bleRoutinesDeleteCharacteristic = pServiceRoutinas->createCharacteristic(CHARACTERISTIC_DELETE_ROUTINES_UUID, BLECharacteristic::PROPERTY_WRITE | BLECharacteristic::PROPERTY_NOTIFY);
   bleRoutinesDeleteCharacteristic->setCallbacks(&bleRoutinesDeleteCallback);
   bleRoutinesDeleteCharacteristic->setValue("{}");
 
   bleRoutinesCreateCallback.onWriteCallback = createRoutinesEndpoint;
-  bleRoutinesCreateCharacteristic = pServiceRoutinas->createCharacteristic(CHARACTERISTIC_CREATE_ROUTINES_UUID,  NIMBLE_PROPERTY::WRITE | NIMBLE_PROPERTY::NOTIFY);
+  bleRoutinesCreateCharacteristic = pServiceRoutinas->createCharacteristic(CHARACTERISTIC_CREATE_ROUTINES_UUID,  BLECharacteristic::PROPERTY_WRITE | BLECharacteristic::PROPERTY_NOTIFY);
   bleRoutinesCreateCharacteristic->setCallbacks(&bleRoutinesCreateCallback);
   bleRoutinesCreateCharacteristic->setValue("{}");
 
@@ -534,7 +519,7 @@ void startBLE(){
   pService->start();
   pServiceRoutinas->start();
 
-  NimBLEAdvertising  *pAdvertising = NimBLEDevice::getAdvertising();
+  BLEAdvertising  *pAdvertising = BLEDevice::getAdvertising();
   pAdvertising->addServiceUUID(SERVICE_UUID);
   pAdvertising->addServiceUUID(SERVICE_ROUTINES_UUID);
   pAdvertising->setScanResponse(true);
@@ -573,5 +558,4 @@ void loop()
     memory.clear();
     ESP.restart();
   }
-  // vTaskSuspend(NULL);
 }

@@ -8,13 +8,13 @@
 #include <freertos/task.h>
 #include "base64.h"
 
-#include <NimBLEDevice.h>
+#include <BLEDevice.h>
 #include "soc/rtc_wdt.h"
 
 
 // SemaphoreHandle_t isNotify = xSemaphoreCreateBinary();
 
-class BluetoothCallback : public NimBLECharacteristicCallbacks 
+class BluetoothCallback : public BLECharacteristicCallbacks 
 {
 private:
     String request = "";
@@ -23,12 +23,7 @@ private:
     bool isReceivingMessage = false;
 
 
-    void onWrite(NimBLECharacteristic* characteristic) {
-        
-        // rtc_wdt_protect_off();    // Turns off the automatic wdt service
-        // rtc_wdt_enable();         // Turn it on manually
-        // rtc_wdt_set_time(RTC_WDT_STAGE0, 1);  // Define how long you desire to let dog wait.
-        
+    void onWrite(BLECharacteristic* characteristic) {
         String value = characteristic->getValue().c_str();
 
         if(value.charAt(value.length() - 1) != 0xFF){
@@ -62,12 +57,9 @@ private:
             log_e("[LOG][BLE:WRITE][E]: %s", e.what());
         }
         value.clear();
-
-        // rtc_wdt_disable();
-        // rtc_wdt_protect_on();
     }
 
-    void onRead(NimBLECharacteristic* characteristic) {
+    void onRead(BLECharacteristic* characteristic) {
         if(!onReadCallback || isReceivingMessage){
             return;
         }
@@ -95,14 +87,14 @@ private:
         }
         vTaskDelay(pdMS_TO_TICKS(3.0));
     }
-    void onNotify(NimBLECharacteristic* characteristic) {
+    void onNotify(BLECharacteristic* characteristic) {
         if(isReceivingMessage){
             return;
         }
         // Serial.printf("[LOG][BLE:NOTIFY]: %s\r\n", characteristic->getValue().c_str());
     }
 
-    void sendBLE(NimBLECharacteristic* characteristic, String& value){
+    void sendBLE(BLECharacteristic* characteristic, String& value){
         size_t offset = 0;  
         size_t dataLength = value.length() + 1;
 
@@ -154,19 +146,18 @@ public:
     std::function<JsonDocument (JsonDocument *)> onReadCallback; 
     std::function<JsonDocument (JsonDocument *)> onWriteCallback;
 
-    void notify(NimBLECharacteristic* characteristic, String& value);
+    void notify(BLECharacteristic* characteristic, String& value);
 };
 
 BluetoothCallback::BluetoothCallback() 
 {
-    // xSemaphoreGive(isNotify);
 }
 
 BluetoothCallback::~BluetoothCallback()
 {
 }
 
-void BluetoothCallback::notify(NimBLECharacteristic* characteristic, String &value)
+void BluetoothCallback::notify(BLECharacteristic* characteristic, String &value)
 {
     sendBLE(characteristic, value);
 }

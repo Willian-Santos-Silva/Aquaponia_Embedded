@@ -233,7 +233,7 @@ public:
 
     int getLowerSolutionDosage()
     {
-        return _memory.read<int>(ADDRESS_DOSAGEM_REDUTOR_PH);
+        return std::min(_memory.read<int>(ADDRESS_DOSAGEM_REDUTOR_PH), DOSAGE_LOWER_SOLUTION_ML_L);
     }
     
     bool setRaiserSolutionDosage(int dosagem){
@@ -249,7 +249,7 @@ public:
 
     int getRaiserSolutionDosage()
     {
-        return _memory.read<int>(ADDRESS_DOSAGEM_AUMENTADOR_PH);
+        return std::min(_memory.read<int>(ADDRESS_DOSAGEM_AUMENTADOR_PH), DOSAGE_RAISE_SOLUTION_ML_L);
     }
 
     bool setTempoReaplicacao(long tempo_reaplicacao) {

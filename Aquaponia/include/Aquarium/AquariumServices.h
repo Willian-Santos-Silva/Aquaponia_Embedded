@@ -256,7 +256,7 @@ aplicacoes AquariumServices::applySolution(const vector<aplicacoes>& aplicacaoLi
 }
 
 aplicacoes AquariumServices::applyRaiserSolution(double deltaPh, double acumuladoAplicado) {
-    Serial.printf("Aplicando Raiser\r\n");
+    Serial.printf("Aplicando Raiser");
     aplicacoes aplicacao;
     aplicacao.ml = 0.0;
 
@@ -268,6 +268,9 @@ aplicacoes AquariumServices::applyRaiserSolution(double deltaPh, double acumulad
     double maxBufferSolutionMl = AQUARIUM_VOLUME_L / static_cast<double>(_aquarium->getRaiserSolutionDosage());
 
     while ((acumuladoAplicado + aplicacao.ml + ml_s) <= maxBufferSolutionMl) {
+        // Serial.printf(".");
+        Serial.printf("ml: %f\r\n", aplicacao.ml);
+        taskYIELD();
         double ph = _aquarium->getPh();
 
         if (ph >= _aquarium->getMaxPh())
@@ -281,12 +284,12 @@ aplicacoes AquariumServices::applyRaiserSolution(double deltaPh, double acumulad
         deltaPh = ph - initialPh;
         vTaskDelay(pdMS_TO_TICKS(100));
     }
+        Serial.printf("\r\n");
     return aplicacao;
 }
 
 aplicacoes AquariumServices::applyLowerSolution(double deltaPh, double acumuladoAplicado) {
-    Serial.printf("Aplicando Lower\r\n");
-    Serial.printf("Aplicando Lower\r\n");
+    Serial.printf("Aplicando Lower");
     aplicacoes aplicacao;
     aplicacao.ml = 0.0;
     double ml_s = 1.0;
@@ -299,6 +302,9 @@ aplicacoes AquariumServices::applyLowerSolution(double deltaPh, double acumulado
     Serial.printf("solucao: %fml\r\n", maxAlkalineSolutionMl);
     Serial.printf("dosar: %fml\r\n", (acumuladoAplicado + aplicacao.ml + ml_s));
     while ((acumuladoAplicado + aplicacao.ml + ml_s) <= maxAlkalineSolutionMl) {
+        // Serial.printf(".");
+        Serial.printf("ml: %f\r\n", aplicacao.ml);
+        taskYIELD();
         double ph = _aquarium->getPh();
 
         if (ph <= _aquarium->getMinPh())
@@ -315,6 +321,7 @@ aplicacoes AquariumServices::applyLowerSolution(double deltaPh, double acumulado
     }
     aplicacao.deltaPh = deltaPh;
 
+    Serial.printf("\r\n");
     return aplicacao;
 }
 
