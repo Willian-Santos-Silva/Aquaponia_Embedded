@@ -264,17 +264,29 @@ public:
     }
 
 
-    int getTurbidity()
+    double getTurbidity()
     {
-        double voltagem = analogRead(PIN_TURBIDITY) / 4095.0 * 3.3;
+        double tensao = analogRead(PIN_TURBIDITY) / 4095.0 * 3.3;
+        double tensao_dp = round_to_dp(tensao, 2);
+        // Serial.printf("TURBIDADE SINAL: %lu\r\n", analogRead(PIN_TURBIDITY));
+        // Serial.printf("TURBIDADE TENSAO: %lf\r\n", tensao);
+        Serial.printf("TURBIDADE ntu 1: %lf\r\n", (-1120.4 * sqrt(tensao_dp) + 5742.3 * tensao_dp - 4353.8));
+        Serial.printf("TURBIDADE ntu 2: %lf\r\n", (-19.709 * sqrt(tensao) - 381.66 + 1155.325));
 
-        if (voltagem <= 2.5)
-            return 3000;
+        // if (tensao <= 2.5)
+        //     return 3000;
 
-        if (voltagem > 4.2)
-            return 0;
+        // if (tensao > 4.2)
+        //     return 0;
+
+        // return -1120.4 * sqrt(tensao_dp) + 5742.3 * tensao_dp - 4353.8;
             
-        return -1120.4 * sqrt(voltagem) + 5742.3 * voltagem - 4353.8;
+        return -19.709 * sqrt(tensao) - 381.66 + 1155.325;
+    }
+
+    float round_to_dp(double in_value, int decimal_place){
+        float multiplier = powf(10.0f, decimal_place);
+        return roundf(in_value * multiplier) / multiplier;
     }
 
     int calcPotencia(double percentage){
